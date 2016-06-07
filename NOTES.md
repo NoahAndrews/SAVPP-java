@@ -30,3 +30,6 @@
   else. I suppose that means we'd need to do the latency delay thing. 
 * This should support more than 2 users. But no direct connections
   between users, all communication goes through host.
+* To measure latency, we'll need messages for ping requests and responses
+* The MD5 hash should be sent in with the initial connection request
+* HostResponse message contains an approve/deny enum
