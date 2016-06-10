@@ -5,6 +5,8 @@ import org.junit.rules.ExpectedException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.net.Socket;
 
 import static me.noahandrews.savpp.SAVPPProto.*;
@@ -38,7 +40,8 @@ import static org.mockito.Mockito.*;
 public class SAVPPGuestTest {
     private SAVPPGuest savppGuest;
 
-    private final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+    private PipedInputStream outgoingDataAsInputStream;
+    private PipedOutputStream outgoingDataAsOutputStream;
 
     private final String MD5_STRING = "5a73e7b6df89f85bb34129fcdfd7da12";
 
@@ -46,9 +49,12 @@ public class SAVPPGuestTest {
     public ExpectedException thrown = ExpectedException.none();
 
     @Before
-    public void setUp() throws IOException {
+    public void setUp() throws Exception {
+        outgoingDataAsInputStream = new PipedInputStream();
+        outgoingDataAsOutputStream = new PipedOutputStream(outgoingDataAsInputStream);
+
         final Socket mockedSocket = mock(Socket.class);
-        when(mockedSocket.getOutputStream()).thenReturn(byteArrayOutputStream);
+        when(mockedSocket.getOutputStream()).thenReturn(outgoingDataAsOutputStream);
 
         savppGuest = new SAVPPGuest("localhost") {
             @Override
@@ -59,10 +65,10 @@ public class SAVPPGuestTest {
     }
 
     @Test
-    public void testConnect() throws IOException {
+    public void testConnect() throws Exception {
         savppGuest.connect(MD5_STRING);
 
-        SAVPPMessage message = SAVPPMessage.parseFrom(byteArrayOutputStream.toByteArray());
+        SAVPPMessage message = SAVPPMessage.parseDelimitedFrom(outgoingDataAsInputStream);
 
         assertEquals(SAVPPMessage.Type.CONNECTION_REQUEST, message.getType());
         assertEquals(MD5_STRING, message.getConnectionRequest().getMd5());

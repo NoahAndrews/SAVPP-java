@@ -3,7 +3,6 @@ package me.noahandrews.savpp;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 
 import static me.noahandrews.savpp.SAVPPProto.*;
@@ -46,7 +45,6 @@ public class SAVPPGuest {
             throw new IllegalArgumentException("Invalid MD5 hash");
         }
 
-
         SAVPPMessage message = SAVPPMessage.newBuilder()
                 .setType(SAVPPMessage.Type.CONNECTION_REQUEST)
                 .setConnectionRequest(ConnectionRequest.newBuilder().setMd5(md5Hash))
@@ -56,8 +54,7 @@ public class SAVPPGuest {
         outputStream = socket.getOutputStream();
         inputStream = socket.getInputStream();
 
-        message.writeTo(outputStream);
-
+        message.writeDelimitedTo(outputStream);
     }
 
     private boolean isHashValid(String md5Hash) {
