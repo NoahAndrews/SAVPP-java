@@ -1,13 +1,5 @@
 package me.noahandrews.savpp;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.Socket;
-
-import static me.noahandrews.savpp.MD5Checker.*;
-import static me.noahandrews.savpp.SAVPPProto.*;
-
 /**
  * MIT License
  * <p>
@@ -32,33 +24,8 @@ import static me.noahandrews.savpp.SAVPPProto.*;
  * SOFTWARE.
  */
 
-public class SAVPPGuest {
-    private final String hostname;
-    private OutputStream outputStream;
-    private InputStream inputStream;
-
-    public SAVPPGuest(String hostname) {
-        this.hostname = hostname;
-    }
-
-    public void connect(String md5Hash) throws IOException {
-        if(!isHashValid(md5Hash)) {
-            throw new IllegalArgumentException("Invalid MD5 hash");
-        }
-
-        SAVPPMessage message = SAVPPMessage.newBuilder()
-                .setType(SAVPPMessage.Type.CONNECTION_REQUEST)
-                .setConnectionRequest(ConnectionRequest.newBuilder().setMd5(md5Hash))
-                .build();
-
-        Socket socket = createSocket();
-        outputStream = socket.getOutputStream();
-        inputStream = socket.getInputStream();
-
-        message.writeDelimitedTo(outputStream);
-    }
-
-    protected Socket createSocket() throws IOException {
-        return new Socket(hostname, SAVPPValues.PORT_NUMBER);
+class MD5Checker {
+    static boolean isHashValid(String md5Hash) {
+        return md5Hash.length() == 32 && md5Hash.matches("[0-9a-fA-F]+");
     }
 }
