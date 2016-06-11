@@ -34,3 +34,10 @@
 * The MD5 hash should be sent in with the initial connection request
 * HostResponse message contains an approve/deny enum
 * Network communication will take place over a raw socket on [port 4440.](http://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml?&page=82) 
+
+
+
+# Notes about what the Java API will look like
+### Error handling
+* If it's an error about something the API consumer just did, we should throw an exception if possible
+* If it's any other kind of error, like if a user disconnects, we should run a callback method
