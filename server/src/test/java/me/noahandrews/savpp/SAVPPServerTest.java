@@ -15,9 +15,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static me.noahandrews.savpp.SAVPPHost.State.*;
 import static me.noahandrews.savpp.SAVPPProto.ConnectionRequest;
 import static me.noahandrews.savpp.SAVPPProto.SAVPPMessage;
+import static me.noahandrews.savpp.SAVPPServer.State.*;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.*;
 
@@ -45,8 +45,8 @@ import static org.mockito.Mockito.*;
  * SOFTWARE.
  */
 
-public class SAVPPHostTest {
-    private SAVPPHost savppHost;
+public class SAVPPServerTest {
+    private SAVPPServer savppServer;
 
     private ServerSocket mockedServerSocket;
     private Socket mockedSocket;
@@ -71,7 +71,7 @@ public class SAVPPHostTest {
         dataToServerAsOutputStream = new PipedOutputStream(dataToServerAsInputStream);
         dataToServerSendingExecutor = Executors.newSingleThreadExecutor();
 
-        savppHost = new SAVPPHost(MD5_HASH) {
+        savppServer = new SAVPPServer(MD5_HASH) {
             @Override
             protected ServerSocket createServerSocket() {
                 return mockedServerSocket;
@@ -89,17 +89,17 @@ public class SAVPPHostTest {
 
         CountDownLatch latch = new CountDownLatch(1);
 
-        savppHost.setEventHandler(new SAVPPHost.EventHandler() {
+        savppServer.setEventHandler(new SAVPPServer.EventHandler() {
             @Override
             public void serverStarted() {
                 latch.countDown();
             }
         });
 
-        savppHost.startListening();
+        savppServer.startListening();
 
         latch.await();
-        assertEquals(LISTENING, savppHost.getState());
+        assertEquals(LISTENING, savppServer.getState());
     }
 
     /**
@@ -116,7 +116,7 @@ public class SAVPPHostTest {
         CountDownLatch latch1 = new CountDownLatch(1);
         final String[] hash = new String[1];
 
-        savppHost.setEventHandler(new SAVPPHost.EventHandler() {
+        savppServer.setEventHandler(new SAVPPServer.EventHandler() {
             @Override
             public void incorrectMD5HashReceived(String receivedHash) {
                 hash[0] = receivedHash;
@@ -124,17 +124,17 @@ public class SAVPPHostTest {
             }
         });
 
-        savppHost.startListening();
+        savppServer.startListening();
 
         latch1.await();
         assertEquals(MD5_HASH_2, hash[0]);
-        assertEquals(WAITING_FOR_HASH, savppHost.getState());
+        assertEquals(WAITING_FOR_HASH, savppServer.getState());
 
         System.out.println("Sending another connection request");
 
         submitConnectionRequest(MD5_HASH);
         CountDownLatch latch2 = new CountDownLatch(1);
-        savppHost.setEventHandler(new SAVPPHost.EventHandler() {
+        savppServer.setEventHandler(new SAVPPServer.EventHandler() {
             @Override
             public void connectionEstablished() {
                 latch2.countDown();
@@ -142,7 +142,7 @@ public class SAVPPHostTest {
         });
 
         latch2.await();
-        assertEquals(CONNECTED, savppHost.getState());
+        assertEquals(CONNECTED, savppServer.getState());
     }
 
     @Test(timeout = 1000)
@@ -152,17 +152,17 @@ public class SAVPPHostTest {
 
         CountDownLatch latch = new CountDownLatch(1);
 
-        savppHost.setEventHandler(new SAVPPHost.EventHandler() {
+        savppServer.setEventHandler(new SAVPPServer.EventHandler() {
             @Override
             public void connectionEstablished() {
                 latch.countDown();
             }
         });
 
-        savppHost.startListening();
+        savppServer.startListening();
 
         latch.await();
-        assertEquals(CONNECTED, savppHost.getState());
+        assertEquals(CONNECTED, savppServer.getState());
     }
 
     @Test
@@ -170,12 +170,12 @@ public class SAVPPHostTest {
         printTestHeader("invalid hash test");
         thrown.expect(IllegalArgumentException.class);
         thrown.expectMessage("Invalid MD5 hash");
-        savppHost = new SAVPPHost("1234567890abcdef");
+        savppServer = new SAVPPServer("1234567890abcdef");
     }
 
     @After
     public void tearDown() throws Exception {
-        savppHost.tearDown();
+        savppServer.tearDown();
     }
 
     private void printTestHeader(String descriptor) {

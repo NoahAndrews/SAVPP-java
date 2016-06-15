@@ -33,12 +33,12 @@ import static me.noahandrews.savpp.SAVPPProto.SAVPPMessage;
  * SOFTWARE.
  */
 
-public class SAVPPGuest {
+public class SAVPPClient {
     private final String hostname;
     private OutputStream outputStream;
     private InputStream inputStream;
 
-    public SAVPPGuest(String hostname) {
+    public SAVPPClient(String hostname) {
         this.hostname = hostname;
     }
 

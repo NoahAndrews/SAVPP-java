@@ -38,8 +38,8 @@ import static org.mockito.Mockito.when;
  * SOFTWARE.
  */
 
-public class SAVPPGuestTest {
-    private SAVPPGuest savppGuest;
+public class SAVPPClientTest {
+    private SAVPPClient savppClient;
 
     private PipedInputStream outgoingDataAsInputStream;
     private PipedOutputStream outgoingDataAsOutputStream;
@@ -57,7 +57,7 @@ public class SAVPPGuestTest {
         final Socket mockedSocket = mock(Socket.class);
         when(mockedSocket.getOutputStream()).thenReturn(outgoingDataAsOutputStream);
 
-        savppGuest = new SAVPPGuest("localhost") {
+        savppClient = new SAVPPClient("localhost") {
             @Override
             protected Socket createSocket() {
                 return mockedSocket;
@@ -67,7 +67,7 @@ public class SAVPPGuestTest {
 
     @Test
     public void testConnect() throws Exception {
-        savppGuest.connect(MD5_STRING);
+        savppClient.connect(MD5_STRING);
 
         SAVPPMessage message = SAVPPMessage.parseDelimitedFrom(outgoingDataAsInputStream);
 
@@ -79,6 +79,6 @@ public class SAVPPGuestTest {
     public void invalidHashRaisesException() throws Exception {
         thrown.expect(IllegalArgumentException.class);
         thrown.expectMessage("Invalid MD5 hash");
-        savppGuest.connect("1234567890abcdef");
+        savppClient.connect("1234567890abcdef");
     }
 }

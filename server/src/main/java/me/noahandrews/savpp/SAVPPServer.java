@@ -9,8 +9,8 @@ import java.util.List;
 import java.util.concurrent.*;
 
 import static me.noahandrews.savpp.MD5Checker.isHashValid;
-import static me.noahandrews.savpp.SAVPPHost.State.*;
 import static me.noahandrews.savpp.SAVPPProto.SAVPPMessage;
+import static me.noahandrews.savpp.SAVPPServer.State.*;
 
 /**
  * MIT License
@@ -36,7 +36,7 @@ import static me.noahandrews.savpp.SAVPPProto.SAVPPMessage;
  * SOFTWARE.
  */
 
-public class SAVPPHost {
+public class SAVPPServer {
     private State state = DORMANT;
 
     private ExecutorService connectionHandlerExecutor;
@@ -47,7 +47,7 @@ public class SAVPPHost {
 
     private final String md5Hash;
 
-    public SAVPPHost(String md5Hash) {
+    public SAVPPServer(String md5Hash) {
         if(!isHashValid(md5Hash)) {
             throw new IllegalArgumentException("Invalid MD5 hash");
         }
@@ -103,7 +103,7 @@ public class SAVPPHost {
             wasConnectionListenerInitiallyRunning = true;
         }
 
-        System.out.println("Tearing down SAVPPHost");
+        System.out.println("Tearing down SAVPPServer");
         for(FutureTask task: connectionHandlerTasks) {
             task.cancel(true);
         }
