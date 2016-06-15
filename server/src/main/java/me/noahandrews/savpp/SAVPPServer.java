@@ -43,6 +43,8 @@ public class SAVPPServer {
     private List<FutureTask<?>> connectionHandlerTasks;
     private FutureTask<?> connectionListenerTask;
 
+    private ServerSocket serverSocket;
+
     private EventHandler eventHandler;
 
     private final String md5Hash;
@@ -93,7 +95,15 @@ public class SAVPPServer {
         this.state = newState;
     }
 
-    public void tearDown() throws ExecutionException, InterruptedException {
+    private synchronized ServerSocket getServerSocket() {
+        return serverSocket;
+    }
+
+    private synchronized void setServerSocket(ServerSocket serverSocket) {
+        this.serverSocket = serverSocket;
+    }
+
+    public void tearDown() throws ExecutionException, InterruptedException, IOException {
         //TODO: Tear down all sockets cleanly
         int initialNumberOfRunningHandlers = ((ThreadPoolExecutor)connectionHandlerExecutor).getActiveCount();
         boolean wasConnectionListenerInitiallyRunning;
@@ -107,8 +117,8 @@ public class SAVPPServer {
         for(FutureTask task: connectionHandlerTasks) {
             task.cancel(true);
         }
-        if(connectionListenerTask != null) {
-            connectionListenerTask.cancel(true);
+        if(serverSocket != null) {
+            serverSocket.close();
         }
 
         int newNumberOfRunningHandlers = ((ThreadPoolExecutor)connectionHandlerExecutor).getActiveCount();
@@ -146,11 +156,14 @@ public class SAVPPServer {
         public void run() {
             try {
                 ServerSocket serverSocket = createServerSocket();
+                setServerSocket(serverSocket);
                 setState(LISTENING);
                 eventHandler.serverStarted();
-                Socket socket = serverSocket.accept();
-                System.out.println("Starting connection handler");
-                connectionHandlerTasks.add((FutureTask) connectionHandlerExecutor.submit(new ConnectionHandler(socket)));
+                while(!serverSocket.isClosed()) {
+                    Socket socket = serverSocket.accept();
+                    System.out.println("Starting connection handler");
+                    connectionHandlerTasks.add((FutureTask) connectionHandlerExecutor.submit(new ConnectionHandler(socket)));
+                }
                 System.out.println("Connection listener shutting down.");
             } catch (Exception e) {
                 e.printStackTrace();
@@ -169,6 +182,16 @@ public class SAVPPServer {
 
         @Override
         public void run() {
+            if(getState() == CONNECTED) {
+                //TODO: Reject the connection, send back an error packet, and close the socket.
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                return;
+            }
+
             setState(WAITING_FOR_HASH);
 
             SAVPPMessage message;
@@ -183,7 +206,10 @@ public class SAVPPServer {
                             setState(CONNECTED);
                             eventHandler.connectionEstablished();
                         } else {
+                            setState(LISTENING);
                             eventHandler.incorrectMD5HashReceived(receivedHash);
+                            socket.close();
+                            return;
                         }
                     }
                 } while (getState() != CONNECTED);

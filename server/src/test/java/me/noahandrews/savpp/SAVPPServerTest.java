@@ -17,9 +17,11 @@ import java.util.concurrent.Executors;
 
 import static me.noahandrews.savpp.SAVPPProto.ConnectionRequest;
 import static me.noahandrews.savpp.SAVPPProto.SAVPPMessage;
-import static me.noahandrews.savpp.SAVPPServer.State.*;
+import static me.noahandrews.savpp.SAVPPServer.State.CONNECTED;
+import static me.noahandrews.savpp.SAVPPServer.State.LISTENING;
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 
 /**
  * MIT License
@@ -48,7 +50,7 @@ import static org.mockito.Mockito.*;
 public class SAVPPServerTest {
     private SAVPPServer savppServer;
 
-    private ServerSocket mockedServerSocket;
+    private ServerSocketDouble serverSocketDouble;
     private Socket mockedSocket;
 
 
@@ -64,7 +66,7 @@ public class SAVPPServerTest {
 
     @Before
     public void setUp() throws Exception {
-        mockedServerSocket = mock(ServerSocket.class);
+        serverSocketDouble = new ServerSocketDouble();
         mockedSocket = mock(Socket.class);
 
         dataToServerAsInputStream = new PipedInputStream();
@@ -74,18 +76,17 @@ public class SAVPPServerTest {
         savppServer = new SAVPPServer(MD5_HASH) {
             @Override
             protected ServerSocket createServerSocket() {
-                return mockedServerSocket;
+                return serverSocketDouble;
             }
         };
 
         doReturn(dataToServerAsInputStream).when(mockedSocket).getInputStream();
-        doReturn(mockedSocket).when(mockedServerSocket).accept();
     }
 
     @Test(timeout = 1000)
     public void testServerCreation() throws Exception {
         printTestHeader("server creation test");
-        when(mockedServerSocket.accept()).thenCallRealMethod();
+        serverSocketDouble.shouldAcceptMethodBlock();
 
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -128,21 +129,7 @@ public class SAVPPServerTest {
 
         latch1.await();
         assertEquals(MD5_HASH_2, hash[0]);
-        assertEquals(WAITING_FOR_HASH, savppServer.getState());
-
-        System.out.println("Sending another connection request");
-
-        submitConnectionRequest(MD5_HASH);
-        CountDownLatch latch2 = new CountDownLatch(1);
-        savppServer.setEventHandler(new SAVPPServer.EventHandler() {
-            @Override
-            public void connectionEstablished() {
-                latch2.countDown();
-            }
-        });
-
-        latch2.await();
-        assertEquals(CONNECTED, savppServer.getState());
+        assertEquals(LISTENING, savppServer.getState());
     }
 
     @Test(timeout = 1000)
@@ -197,6 +184,29 @@ public class SAVPPServerTest {
         });
     }
 
+    private class ServerSocketDouble extends ServerSocket {
+        private boolean shouldAcceptMethodBlock = false;
+        private boolean hasAcceptBeenCalled = false;
+
+        public ServerSocketDouble() throws IOException {
+            super();
+        }
+
+        public void shouldAcceptMethodBlock() {
+            shouldAcceptMethodBlock = true;
+        }
+
+        @Override
+        public Socket accept() throws IOException {
+            if(shouldAcceptMethodBlock || hasAcceptBeenCalled) {
+                hasAcceptBeenCalled = true;
+                while(true) {}
+            }
+            hasAcceptBeenCalled = true;
+            return mockedSocket;
+        }
+    }
+
     //TODO: Test what happens when something other than a SAVPPMessage is sent
 
     //TODO: When the first SAVPPMessage is something other than a ConnectionRequest, expect an error packet
@@ -214,4 +224,12 @@ public class SAVPPServerTest {
     //TODO: Once a connection is initiated, it must be established in 5 seconds or the connection is shut down.
 
     //TODO: When a connection is fully established, the host should send the guest the current timestamp.
+
+    //TODO: Test adding multiple event handlers
+
+    //TODO: There should be an optional human-readable identifier that can be specified in ConnectionRequest
+
+    //TODO: If a second connection attempt is made while a connection is active, we should get back an error packet.
+
+    //TODO: Verify proper destruction
 }
