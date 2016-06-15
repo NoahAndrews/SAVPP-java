@@ -1,17 +1,18 @@
 package me.noahandrews.savpp;
 
-import org.junit.*;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.net.Socket;
 
-import static me.noahandrews.savpp.SAVPPProto.*;
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static me.noahandrews.savpp.SAVPPProto.SAVPPMessage;
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * MIT License

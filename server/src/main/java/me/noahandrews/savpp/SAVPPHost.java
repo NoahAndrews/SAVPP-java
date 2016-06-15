@@ -10,7 +10,7 @@ import java.util.concurrent.*;
 
 import static me.noahandrews.savpp.MD5Checker.isHashValid;
 import static me.noahandrews.savpp.SAVPPHost.State.*;
-import static me.noahandrews.savpp.SAVPPProto.*;
+import static me.noahandrews.savpp.SAVPPProto.SAVPPMessage;
 
 /**
  * MIT License
@@ -61,18 +61,17 @@ public class SAVPPHost {
         this.eventHandler = handler;
     }
 
-    public void startListening() throws IOException {
+    public synchronized void startListening() throws IOException {
         ExecutorService connectionListenerExecutor = Executors.newSingleThreadExecutor();
         if(getState() != DORMANT) {
             String message;
-            if(state == LISTENING){
+            if(getState() == LISTENING){
                 message = "Only one guest is currently allowed.";
             } else {
                 message = "startListening() can only be called from the dormant state.";
             }
             throw new RuntimeException(message);
         }
-        setState(LISTENING);
         System.out.println("Starting connection listener.");
         connectionListenerTask = (FutureTask)connectionListenerExecutor.submit(new ConnectionListener());
     }
@@ -86,7 +85,7 @@ public class SAVPPHost {
     }
 
     private synchronized void setState(State newState) {
-        State formerState = this.state;
+        State formerState = getState();
         System.out.println("Changing state from " + formerState + " to " + newState);
         if(formerState == DESTROYED) {
             throw new IllegalStateException("State cannot be changed after destruction.");
@@ -121,7 +120,7 @@ public class SAVPPHost {
         }
 
         if(wasConnectionListenerInitiallyRunning && !isConnectionListenerRunning) {
-            System.out.println("Connection listener stopped.");
+            System.out.println("Connection listener killed.");
         } else if(!wasConnectionListenerInitiallyRunning) {
             System.out.println("Connection listener was not running upon tearDown() call.");
         }
@@ -146,7 +145,10 @@ public class SAVPPHost {
         @Override
         public void run() {
             try {
-                Socket socket = createServerSocket().accept();
+                ServerSocket serverSocket = createServerSocket();
+                setState(LISTENING);
+                eventHandler.serverStarted();
+                Socket socket = serverSocket.accept();
                 System.out.println("Starting connection handler");
                 connectionHandlerTasks.add((FutureTask) connectionHandlerExecutor.submit(new ConnectionHandler(socket)));
                 System.out.println("Connection listener shutting down.");
@@ -171,17 +173,20 @@ public class SAVPPHost {
 
             SAVPPMessage message;
             try {
-                message = SAVPPMessage.parseDelimitedFrom(socket.getInputStream());
+                do {
+                    message = SAVPPMessage.parseDelimitedFrom(socket.getInputStream());
 
-                if(message.getType() != SAVPPMessage.Type.CONNECTION_REQUEST) {
-                } else {
-                    String receivedHash = message.getConnectionRequest().getMd5();
-                    if(receivedHash.equals(md5Hash)) {
-                        setState(CONNECTED);
-                        eventHandler.connectionEstablished();
+                    if(message.getType() != SAVPPMessage.Type.CONNECTION_REQUEST) {
                     } else {
+                        String receivedHash = message.getConnectionRequest().getMd5();
+                        if(receivedHash.equals(md5Hash)) {
+                            setState(CONNECTED);
+                            eventHandler.connectionEstablished();
+                        } else {
+                            eventHandler.incorrectMD5HashReceived(receivedHash);
+                        }
                     }
-                }
+                } while (getState() != CONNECTED);
             } catch (IOException e) {
                 e.printStackTrace();
                 //TODO: handle this somehow
@@ -191,6 +196,10 @@ public class SAVPPHost {
     }
 
     public static abstract class EventHandler {
-        public abstract void connectionEstablished();
+        public void connectionEstablished() {}
+
+        public void incorrectMD5HashReceived(String receivedHash) {}
+
+        public void serverStarted() {}
     }
 }

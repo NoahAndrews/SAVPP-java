@@ -6,16 +6,19 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
+import java.io.IOException;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static me.noahandrews.savpp.SAVPPHost.State.*;
-import static me.noahandrews.savpp.SAVPPProto.*;
-import static org.junit.Assert.*;
+import static me.noahandrews.savpp.SAVPPProto.ConnectionRequest;
+import static me.noahandrews.savpp.SAVPPProto.SAVPPMessage;
+import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.*;
 
 /**
@@ -45,50 +48,107 @@ import static org.mockito.Mockito.*;
 public class SAVPPHostTest {
     private SAVPPHost savppHost;
 
-    private ServerSocket mockedServerSocket = mock(ServerSocket.class);
-    private Socket mockedSocket = mock(Socket.class);
+    private ServerSocket mockedServerSocket;
+    private Socket mockedSocket;
 
 
-    private PipedInputStream incomingDataAsInputStream;
-    private PipedOutputStream incomingDataAsOutputStream;
+    private PipedInputStream dataToServerAsInputStream;
+    private PipedOutputStream dataToServerAsOutputStream;
+    private ExecutorService dataToServerSendingExecutor;
 
-    private final String MD5_STRING = "5a73e7b6df89f85bb34129fcdfd7da12";
+    private final String MD5_HASH = "5a73e7b6df89f85bb34129fcdfd7da12";
+    private final String MD5_HASH_2 = "bedb04bb540934fda8b12ed4aaa2fc34";
 
     @Rule
     public ExpectedException thrown = ExpectedException.none();
 
     @Before
     public void setUp() throws Exception {
-        incomingDataAsInputStream = new PipedInputStream();
-        incomingDataAsOutputStream = new PipedOutputStream(incomingDataAsInputStream);
+        mockedServerSocket = mock(ServerSocket.class);
+        mockedSocket = mock(Socket.class);
 
-        savppHost = new SAVPPHost(MD5_STRING) {
+        dataToServerAsInputStream = new PipedInputStream();
+        dataToServerAsOutputStream = new PipedOutputStream(dataToServerAsInputStream);
+        dataToServerSendingExecutor = Executors.newSingleThreadExecutor();
+
+        savppHost = new SAVPPHost(MD5_HASH) {
             @Override
             protected ServerSocket createServerSocket() {
                 return mockedServerSocket;
             }
         };
+
+        doReturn(dataToServerAsInputStream).when(mockedSocket).getInputStream();
+        doReturn(mockedSocket).when(mockedServerSocket).accept();
     }
 
     @Test(timeout = 1000)
     public void testServerCreation() throws Exception {
         printTestHeader("server creation test");
         when(mockedServerSocket.accept()).thenCallRealMethod();
+
+        CountDownLatch latch = new CountDownLatch(1);
+
+        savppHost.setEventHandler(new SAVPPHost.EventHandler() {
+            @Override
+            public void serverStarted() {
+                latch.countDown();
+            }
+        });
+
         savppHost.startListening();
 
+        latch.await();
         assertEquals(LISTENING, savppHost.getState());
+    }
+
+    /**
+     * This test may throw a SocketException with message "Socket is not bound yet". If you see that, ignore it.
+     * It doesn't apply to unit testing. Something is weird with Mockito, and it's calling the real ServerSocket.accept()
+     * method instead of just the mocked version.
+     * @throws Exception
+     */
+    @Test(timeout = 2000)
+    public void incorrectHash() throws Exception {
+        printTestHeader("incorrect hash test");
+        submitConnectionRequest(MD5_HASH_2);
+
+        CountDownLatch latch1 = new CountDownLatch(1);
+        final String[] hash = new String[1];
+
+        savppHost.setEventHandler(new SAVPPHost.EventHandler() {
+            @Override
+            public void incorrectMD5HashReceived(String receivedHash) {
+                hash[0] = receivedHash;
+                latch1.countDown();
+            }
+        });
+
+        savppHost.startListening();
+
+        latch1.await();
+        assertEquals(MD5_HASH_2, hash[0]);
+        assertEquals(WAITING_FOR_HASH, savppHost.getState());
+
+        System.out.println("Sending another connection request");
+
+        submitConnectionRequest(MD5_HASH);
+        CountDownLatch latch2 = new CountDownLatch(1);
+        savppHost.setEventHandler(new SAVPPHost.EventHandler() {
+            @Override
+            public void connectionEstablished() {
+                latch2.countDown();
+            }
+        });
+
+        latch2.await();
+        assertEquals(CONNECTED, savppHost.getState());
     }
 
     @Test(timeout = 1000)
     public void testConnection() throws Exception {
         printTestHeader("connection test");
-        SAVPPMessage connectionRequest = SAVPPMessage.newBuilder()
-                .setType(SAVPPMessage.Type.CONNECTION_REQUEST)
-                .setConnectionRequest(ConnectionRequest.newBuilder().setMd5(MD5_STRING))
-                .build();
-        connectionRequest.writeDelimitedTo(incomingDataAsOutputStream);
-        when(mockedSocket.getInputStream()).thenReturn(incomingDataAsInputStream);
-        when(mockedServerSocket.accept()).thenReturn(mockedSocket);
+        submitConnectionRequest(MD5_HASH);
 
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -122,6 +182,21 @@ public class SAVPPHostTest {
         System.out.println("\n\nRunning " + descriptor + "\n==========================================================");
     }
 
+    private void submitConnectionRequest(String md5Hash) throws IOException {
+        SAVPPMessage connectionRequest = SAVPPMessage.newBuilder()
+                .setType(SAVPPMessage.Type.CONNECTION_REQUEST)
+                .setConnectionRequest(ConnectionRequest.newBuilder().setMd5(md5Hash))
+                .build();
+
+        dataToServerSendingExecutor.execute(() -> {
+            try {
+                connectionRequest.writeDelimitedTo(dataToServerAsOutputStream);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
     //TODO: Test what happens when something other than a SAVPPMessage is sent
 
     //TODO: When the first SAVPPMessage is something other than a ConnectionRequest, expect an error packet
@@ -135,4 +210,8 @@ public class SAVPPHostTest {
 
     //TODO: If a valid but incorrect MD5 hash is received, expect an event to alert us as well as an error packet to be sent to the guest
     //TODO: Sending a valid MD5 has at this point should result in a successful connection.
+
+    //TODO: Once a connection is initiated, it must be established in 5 seconds or the connection is shut down.
+
+    //TODO: When a connection is fully established, the host should send the guest the current timestamp.
 }

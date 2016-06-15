@@ -5,8 +5,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 
-import static me.noahandrews.savpp.MD5Checker.*;
-import static me.noahandrews.savpp.SAVPPProto.*;
+import static me.noahandrews.savpp.MD5Checker.isHashValid;
+import static me.noahandrews.savpp.SAVPPProto.ConnectionRequest;
+import static me.noahandrews.savpp.SAVPPProto.SAVPPMessage;
 
 /**
  * MIT License
