@@ -48,7 +48,7 @@ public class SAVPPClient {
         }
 
         SAVPPMessage message = SAVPPMessage.newBuilder()
-                .setType(SAVPPMessage.Type.CONNECTION_REQUEST)
+                .setType(SAVPPMessage.MessageType.CONNECTION_REQUEST)
                 .setConnectionRequest(ConnectionRequest.newBuilder().setMd5(md5Hash))
                 .build();
 

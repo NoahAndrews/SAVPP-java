@@ -71,7 +71,7 @@ public class SAVPPClientTest {
 
         SAVPPMessage message = SAVPPMessage.parseDelimitedFrom(outgoingDataAsInputStream);
 
-        assertEquals(SAVPPMessage.Type.CONNECTION_REQUEST, message.getType());
+        assertEquals(SAVPPMessage.MessageType.CONNECTION_REQUEST, message.getType());
         assertEquals(MD5_STRING, message.getConnectionRequest().getMd5());
     }
 

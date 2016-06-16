@@ -58,6 +58,9 @@ public class SAVPPServerTest {
     private PipedOutputStream dataToServerAsOutputStream;
     private ExecutorService dataToServerSendingExecutor;
 
+    private PipedInputStream dataFromServerAsInputStream;
+    private PipedOutputStream dataFromServerAsOutputStream;
+
     private final String MD5_HASH = "5a73e7b6df89f85bb34129fcdfd7da12";
     private final String MD5_HASH_2 = "bedb04bb540934fda8b12ed4aaa2fc34";
 
@@ -73,6 +76,9 @@ public class SAVPPServerTest {
         dataToServerAsOutputStream = new PipedOutputStream(dataToServerAsInputStream);
         dataToServerSendingExecutor = Executors.newSingleThreadExecutor();
 
+        dataFromServerAsInputStream = new PipedInputStream();
+        dataFromServerAsOutputStream = new PipedOutputStream(dataFromServerAsInputStream);
+
         savppServer = new SAVPPServer(MD5_HASH) {
             @Override
             protected ServerSocket createServerSocket() {
@@ -80,6 +86,7 @@ public class SAVPPServerTest {
             }
         };
 
+        doReturn(dataToServerAsOutputStream).when(mockedSocket).getOutputStream();
         doReturn(dataToServerAsInputStream).when(mockedSocket).getInputStream();
     }
 
@@ -160,6 +167,20 @@ public class SAVPPServerTest {
         savppServer = new SAVPPServer("1234567890abcdef");
     }
 
+    @Test(timeout = 1000)
+    public void invalidData() throws Exception {
+        printTestHeader("invalid data test");
+        dataToServerSendingExecutor.execute(() -> {
+            try {
+                dataToServerAsOutputStream.write(5);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+        SAVPPMessage message = SAVPPMessage.parseDelimitedFrom(dataFromServerAsInputStream);
+        assertEquals(SAVPPProto.Error.ErrorType.INVALID_DATA, message.getError().getType());
+    }
+
     @After
     public void tearDown() throws Exception {
         savppServer.tearDown();
@@ -171,7 +192,7 @@ public class SAVPPServerTest {
 
     private void submitConnectionRequest(String md5Hash) throws IOException {
         SAVPPMessage connectionRequest = SAVPPMessage.newBuilder()
-                .setType(SAVPPMessage.Type.CONNECTION_REQUEST)
+                .setType(SAVPPMessage.MessageType.CONNECTION_REQUEST)
                 .setConnectionRequest(ConnectionRequest.newBuilder().setMd5(md5Hash))
                 .build();
 

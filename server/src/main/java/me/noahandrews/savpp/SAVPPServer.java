@@ -199,7 +199,7 @@ public class SAVPPServer {
                 do {
                     message = SAVPPMessage.parseDelimitedFrom(socket.getInputStream());
 
-                    if(message.getType() != SAVPPMessage.Type.CONNECTION_REQUEST) {
+                    if(message.getType() != SAVPPMessage.MessageType.CONNECTION_REQUEST) {
                     } else {
                         String receivedHash = message.getConnectionRequest().getMd5();
                         if(receivedHash.equals(md5Hash)) {

@@ -27,14 +27,27 @@ option java_outer_classname = "SAVPPProto";
 
 option optimize_for = LITE_RUNTIME;
 
+message SAVPPMessage {
+    enum MessageType {
+        ERROR = 1;
+        CONNECTION_REQUEST = 2;
+    }
+
+    required MessageType type = 1;
+
+    optional Error error = 2;
+    optional ConnectionRequest connectionRequest = 3;
+}
+
+
 message ConnectionRequest {
     required string md5 = 1;
 }
 
-message SAVPPMessage {
-    enum Type { CONNECTION_REQUEST = 1; }
-
-    required Type type = 1;
-
-    optional ConnectionRequest connectionRequest = 2;
+message Error {
+    enum ErrorType {
+        INVALID_DATA = 1;
+    }
+    required ErrorType type = 1;
+    optional string message = 2;
 }
