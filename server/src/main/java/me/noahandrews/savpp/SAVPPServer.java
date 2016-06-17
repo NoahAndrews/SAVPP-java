@@ -1,8 +1,13 @@
 package me.noahandrews.savpp;
 
+import com.google.protobuf.InvalidProtocolBufferException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -37,6 +42,8 @@ import static me.noahandrews.savpp.SAVPPServer.State.*;
  */
 
 public class SAVPPServer {
+    private static final Logger logger = LogManager.getLogger();
+
     private State state = DORMANT;
 
     private ExecutorService connectionHandlerExecutor;
@@ -50,6 +57,7 @@ public class SAVPPServer {
     private final String md5Hash;
 
     public SAVPPServer(String md5Hash) {
+        logger.traceEntry();
         if(!isHashValid(md5Hash)) {
             throw new IllegalArgumentException("Invalid MD5 hash");
         }
@@ -57,13 +65,19 @@ public class SAVPPServer {
 
         connectionHandlerExecutor = Executors.newCachedThreadPool();
         connectionHandlerTasks = Collections.synchronizedList(new ArrayList<>(1));
+        logger.traceExit();
     }
 
-    public void setEventHandler(EventHandler handler) {
+    public synchronized void setEventHandler(EventHandler handler) {
         this.eventHandler = handler;
     }
 
+    private synchronized EventHandler getEventHandler() {
+        return eventHandler;
+    }
+
     public synchronized void startListening() throws IOException {
+        logger.traceEntry();
         ExecutorService connectionListenerExecutor = Executors.newSingleThreadExecutor();
         if(getState() != DORMANT) {
             String message;
@@ -72,10 +86,13 @@ public class SAVPPServer {
             } else {
                 message = "startListening() can only be called from the dormant state.";
             }
-            throw new RuntimeException(message);
+            RuntimeException exception = new RuntimeException(message);
+            exception.printStackTrace();
+            throw exception;
         }
-        System.out.println("Starting connection listener.");
+        logger.debug("Starting connection listener.");
         connectionListenerTask = (FutureTask)connectionListenerExecutor.submit(new ConnectionListener());
+        logger.traceExit();
     }
 
     protected synchronized ServerSocket createServerSocket() throws IOException {
@@ -88,10 +105,10 @@ public class SAVPPServer {
 
     private synchronized void setState(State newState) {
         State formerState = getState();
-        System.out.println("Changing state from " + formerState + " to " + newState);
         if(formerState == DESTROYED) {
             throw new IllegalStateException("State cannot be changed after destruction.");
         }
+        logger.debug("Changing state from " + formerState + " to " + newState);
         this.state = newState;
     }
 
@@ -104,6 +121,7 @@ public class SAVPPServer {
     }
 
     public void tearDown() throws ExecutionException, InterruptedException, IOException {
+        setState(DESTROYING);
         //TODO: Tear down all sockets cleanly
         int initialNumberOfRunningHandlers = ((ThreadPoolExecutor)connectionHandlerExecutor).getActiveCount();
         boolean wasConnectionListenerInitiallyRunning;
@@ -113,10 +131,10 @@ public class SAVPPServer {
             wasConnectionListenerInitiallyRunning = true;
         }
 
-        System.out.println("Tearing down SAVPPServer");
         for(FutureTask task: connectionHandlerTasks) {
             task.cancel(true);
         }
+
         if(serverSocket != null) {
             serverSocket.close();
         }
@@ -130,15 +148,15 @@ public class SAVPPServer {
         }
 
         if(wasConnectionListenerInitiallyRunning && !isConnectionListenerRunning) {
-            System.out.println("Connection listener killed.");
+            logger.debug("Connection listener killed.");
         } else if(!wasConnectionListenerInitiallyRunning) {
-            System.out.println("Connection listener was not running upon tearDown() call.");
+            logger.debug("Connection listener was not running upon tearDown() call.");
         }
         else {
-            System.out.println("Connection listener was and still is running.");
+            logger.debug("Connection listener was and still is running.");
         }
 
-        System.out.println("Went from " + initialNumberOfRunningHandlers + " to " + newNumberOfRunningHandlers + " running connection handlers.");
+        logger.debug("Went from " + initialNumberOfRunningHandlers + " to " + newNumberOfRunningHandlers + " running connection handlers.");
 
         setState(DESTROYED);
     }
@@ -148,24 +166,39 @@ public class SAVPPServer {
         LISTENING,
         WAITING_FOR_HASH,
         CONNECTED,
+        DESTROYING,
         DESTROYED
     }
 
     private class ConnectionListener implements Runnable {
         @Override
         public void run() {
+            logger.traceEntry("ConnectionListener.run()");
+            ServerSocket serverSocket;
             try {
-                ServerSocket serverSocket = createServerSocket();
+                serverSocket = createServerSocket();
                 setServerSocket(serverSocket);
                 setState(LISTENING);
-                eventHandler.serverStarted();
-                while(!serverSocket.isClosed()) {
-                    Socket socket = serverSocket.accept();
-                    System.out.println("Starting connection handler");
+                if (getEventHandler() != null) {
+                    getEventHandler().serverStarted();
+                }
+                while (!serverSocket.isClosed()) {
+                    Socket socket = null;
+                    try {
+                        socket = serverSocket.accept();
+                    } catch (SocketException e) {
+                        if (getState() != DESTROYING) {
+                            throw new RuntimeException(e.getMessage(), e);
+                        }
+                    } catch (IOException e1) {
+                        e1.printStackTrace();
+                    }
+                    logger.debug("Starting connection handler");
                     connectionHandlerTasks.add((FutureTask) connectionHandlerExecutor.submit(new ConnectionHandler(socket)));
                 }
-                System.out.println("Connection listener shutting down.");
-            } catch (Exception e) {
+                logger.debug("Connection listener shutting down.");
+                logger.traceExit();
+            } catch (IOException e) {
                 e.printStackTrace();
                 //TODO: fix the state
                 //TODO: notify the API consumer that something went wrong
@@ -182,7 +215,8 @@ public class SAVPPServer {
 
         @Override
         public void run() {
-            if(getState() == CONNECTED) {
+            logger.traceEntry();
+            if (getState() == CONNECTED) {
                 //TODO: Reject the connection, send back an error packet, and close the socket.
                 try {
                     socket.close();
@@ -199,33 +233,52 @@ public class SAVPPServer {
                 do {
                     message = SAVPPMessage.parseDelimitedFrom(socket.getInputStream());
 
-                    if(message.getType() != SAVPPMessage.MessageType.CONNECTION_REQUEST) {
+                    if (message.getType() != SAVPPMessage.MessageType.CONNECTION_REQUEST) {
                     } else {
+                        logger.debug("Connection request received");
                         String receivedHash = message.getConnectionRequest().getMd5();
-                        if(receivedHash.equals(md5Hash)) {
+                        if (receivedHash.equals(md5Hash)) {
                             setState(CONNECTED);
-                            eventHandler.connectionEstablished();
+                            getEventHandler().connectionEstablished();
                         } else {
+                            logger.debug("Incorrect hash received");
                             setState(LISTENING);
-                            eventHandler.incorrectMD5HashReceived(receivedHash);
+                            getEventHandler().incorrectMD5HashReceived(receivedHash);
                             socket.close();
                             return;
                         }
                     }
                 } while (getState() != CONNECTED);
+            } catch (InvalidProtocolBufferException e) {
+                SAVPPMessage errorMessage = SAVPPMessage.newBuilder()
+                        .setType(SAVPPMessage.MessageType.ERROR)
+                        .setError(SAVPPProto.Error.newBuilder().setType(SAVPPProto.Error.ErrorType.INVALID_DATA).setMessage("Could not parse as SAVPPMessage"))
+                        .build();
+
+                try {
+                    logger.debug("Sending INVALID_DATA error packet");
+                    errorMessage.writeDelimitedTo(socket.getOutputStream());
+                } catch (IOException e1) {
+                    e1.printStackTrace();
+                }
+
             } catch (IOException e) {
                 e.printStackTrace();
                 //TODO: handle this somehow
             }
-            System.out.println("Connection handler shutting down.");
+            logger.debug("Connection handler shutting down.");
+            logger.traceExit();
         }
     }
 
     public static abstract class EventHandler {
-        public void connectionEstablished() {}
+        public void connectionEstablished() {
+        }
 
-        public void incorrectMD5HashReceived(String receivedHash) {}
+        public void incorrectMD5HashReceived(String receivedHash) {
+        }
 
-        public void serverStarted() {}
+        public void serverStarted() {
+        }
     }
 }

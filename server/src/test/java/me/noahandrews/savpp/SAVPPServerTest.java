@@ -1,5 +1,7 @@
 package me.noahandrews.savpp;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -7,21 +9,14 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import java.io.IOException;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
-import java.net.ServerSocket;
+import java.io.InputStream;
 import java.net.Socket;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static me.noahandrews.savpp.SAVPPProto.ConnectionRequest;
 import static me.noahandrews.savpp.SAVPPProto.SAVPPMessage;
-import static me.noahandrews.savpp.SAVPPServer.State.CONNECTED;
-import static me.noahandrews.savpp.SAVPPServer.State.LISTENING;
+import static me.noahandrews.savpp.SAVPPServer.State.*;
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
 
 /**
  * MIT License
@@ -50,51 +45,40 @@ import static org.mockito.Mockito.mock;
 public class SAVPPServerTest {
     private SAVPPServer savppServer;
 
-    private ServerSocketDouble serverSocketDouble;
-    private Socket mockedSocket;
-
-
-    private PipedInputStream dataToServerAsInputStream;
-    private PipedOutputStream dataToServerAsOutputStream;
-    private ExecutorService dataToServerSendingExecutor;
-
-    private PipedInputStream dataFromServerAsInputStream;
-    private PipedOutputStream dataFromServerAsOutputStream;
+    private Socket socket;
 
     private final String MD5_HASH = "5a73e7b6df89f85bb34129fcdfd7da12";
     private final String MD5_HASH_2 = "bedb04bb540934fda8b12ed4aaa2fc34";
+
+    Logger logger = LogManager.getLogger();
 
     @Rule
     public ExpectedException thrown = ExpectedException.none();
 
     @Before
     public void setUp() throws Exception {
-        serverSocketDouble = new ServerSocketDouble();
-        mockedSocket = mock(Socket.class);
+        savppServer = new SAVPPServer(MD5_HASH);
+        savppServer.startListening();
 
-        dataToServerAsInputStream = new PipedInputStream();
-        dataToServerAsOutputStream = new PipedOutputStream(dataToServerAsInputStream);
-        dataToServerSendingExecutor = Executors.newSingleThreadExecutor();
+        while(savppServer.getState() != LISTENING) {}
 
-        dataFromServerAsInputStream = new PipedInputStream();
-        dataFromServerAsOutputStream = new PipedOutputStream(dataFromServerAsInputStream);
+        logger.debug("Connecting socket to SAVPPServer");
+        socket = new Socket("localhost", SAVPPValues.PORT_NUMBER);
+    }
 
-        savppServer = new SAVPPServer(MD5_HASH) {
-            @Override
-            protected ServerSocket createServerSocket() {
-                return serverSocketDouble;
-            }
-        };
-
-        doReturn(dataToServerAsOutputStream).when(mockedSocket).getOutputStream();
-        doReturn(dataToServerAsInputStream).when(mockedSocket).getInputStream();
+    @After
+    public void tearDown() throws Exception {
+        socket.close();
+        savppServer.tearDown();
     }
 
     @Test(timeout = 1000)
     public void testServerCreation() throws Exception {
         printTestHeader("server creation test");
-        serverSocketDouble.shouldAcceptMethodBlock();
 
+        savppServer.tearDown(); //TODO: clean this mess up
+        while(savppServer.getState() != DESTROYED) {}
+        savppServer = new SAVPPServer(MD5_HASH);
         CountDownLatch latch = new CountDownLatch(1);
 
         savppServer.setEventHandler(new SAVPPServer.EventHandler() {
@@ -103,38 +87,28 @@ public class SAVPPServerTest {
                 latch.countDown();
             }
         });
-
         savppServer.startListening();
 
         latch.await();
         assertEquals(LISTENING, savppServer.getState());
     }
 
-    /**
-     * This test may throw a SocketException with message "Socket is not bound yet". If you see that, ignore it.
-     * It doesn't apply to unit testing. Something is weird with Mockito, and it's calling the real ServerSocket.accept()
-     * method instead of just the mocked version.
-     * @throws Exception
-     */
     @Test(timeout = 2000)
     public void incorrectHash() throws Exception {
         printTestHeader("incorrect hash test");
-        submitConnectionRequest(MD5_HASH_2);
 
-        CountDownLatch latch1 = new CountDownLatch(1);
+        CountDownLatch latch = new CountDownLatch(1);
         final String[] hash = new String[1];
-
         savppServer.setEventHandler(new SAVPPServer.EventHandler() {
             @Override
             public void incorrectMD5HashReceived(String receivedHash) {
+                logger.debug("Received incorrect hash event");
                 hash[0] = receivedHash;
-                latch1.countDown();
+                latch.countDown();
             }
         });
-
-        savppServer.startListening();
-
-        latch1.await();
+        submitConnectionRequest(MD5_HASH_2);
+        latch.await();
         assertEquals(MD5_HASH_2, hash[0]);
         assertEquals(LISTENING, savppServer.getState());
     }
@@ -142,7 +116,6 @@ public class SAVPPServerTest {
     @Test(timeout = 1000)
     public void testConnection() throws Exception {
         printTestHeader("connection test");
-        submitConnectionRequest(MD5_HASH);
 
         CountDownLatch latch = new CountDownLatch(1);
 
@@ -153,13 +126,13 @@ public class SAVPPServerTest {
             }
         });
 
-        savppServer.startListening();
+        submitConnectionRequest(MD5_HASH);
 
         latch.await();
         assertEquals(CONNECTED, savppServer.getState());
     }
 
-    @Test
+    @Test(timeout = 1000)
     public void invalidHashRaisesException() throws Exception {
         printTestHeader("invalid hash test");
         thrown.expect(IllegalArgumentException.class);
@@ -167,23 +140,18 @@ public class SAVPPServerTest {
         savppServer = new SAVPPServer("1234567890abcdef");
     }
 
-    @Test(timeout = 1000)
+    @Test(timeout = 3000)
     public void invalidData() throws Exception {
         printTestHeader("invalid data test");
-        dataToServerSendingExecutor.execute(() -> {
-            try {
-                dataToServerAsOutputStream.write(5);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        });
-        SAVPPMessage message = SAVPPMessage.parseDelimitedFrom(dataFromServerAsInputStream);
-        assertEquals(SAVPPProto.Error.ErrorType.INVALID_DATA, message.getError().getType());
-    }
 
-    @After
-    public void tearDown() throws Exception {
-        savppServer.tearDown();
+        System.out.println("Sending junk data");
+
+        socket.getOutputStream().write("This is not a SAVPP Message".getBytes());
+
+        InputStream inputStream = socket.getInputStream();
+
+        SAVPPMessage message = SAVPPMessage.parseDelimitedFrom(inputStream);
+        assertEquals(SAVPPProto.Error.ErrorType.INVALID_DATA, message.getError().getType());
     }
 
     private void printTestHeader(String descriptor) {
@@ -191,41 +159,14 @@ public class SAVPPServerTest {
     }
 
     private void submitConnectionRequest(String md5Hash) throws IOException {
+        logger.traceEntry();
         SAVPPMessage connectionRequest = SAVPPMessage.newBuilder()
                 .setType(SAVPPMessage.MessageType.CONNECTION_REQUEST)
                 .setConnectionRequest(ConnectionRequest.newBuilder().setMd5(md5Hash))
                 .build();
 
-        dataToServerSendingExecutor.execute(() -> {
-            try {
-                connectionRequest.writeDelimitedTo(dataToServerAsOutputStream);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        });
-    }
-
-    private class ServerSocketDouble extends ServerSocket {
-        private boolean shouldAcceptMethodBlock = false;
-        private boolean hasAcceptBeenCalled = false;
-
-        public ServerSocketDouble() throws IOException {
-            super();
-        }
-
-        public void shouldAcceptMethodBlock() {
-            shouldAcceptMethodBlock = true;
-        }
-
-        @Override
-        public Socket accept() throws IOException {
-            if(shouldAcceptMethodBlock || hasAcceptBeenCalled) {
-                hasAcceptBeenCalled = true;
-                while(true) {}
-            }
-            hasAcceptBeenCalled = true;
-            return mockedSocket;
-        }
+        connectionRequest.writeDelimitedTo(socket.getOutputStream());
+        logger.traceExit();
     }
 
     //TODO: Test what happens when something other than a SAVPPMessage is sent
