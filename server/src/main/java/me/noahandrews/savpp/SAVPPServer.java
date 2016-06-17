@@ -141,6 +141,9 @@ public class SAVPPServer {
 
         int newNumberOfRunningHandlers = ((ThreadPoolExecutor)connectionHandlerExecutor).getActiveCount();
         boolean isConnectionListenerRunning;
+
+        while(!connectionListenerTask.isDone()) {}
+
         if(connectionListenerTask == null || connectionListenerTask.isDone()) {
             isConnectionListenerRunning = false;
         } else {
