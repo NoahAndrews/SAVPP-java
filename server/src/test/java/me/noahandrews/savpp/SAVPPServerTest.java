@@ -2,8 +2,6 @@ package me.noahandrews.savpp;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -11,12 +9,12 @@ import org.junit.rules.Timeout;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.Socket;
 import java.util.concurrent.CountDownLatch;
 
 import static me.noahandrews.savpp.SAVPPProto.ConnectionRequest;
 import static me.noahandrews.savpp.SAVPPProto.SAVPPMessage;
-import static me.noahandrews.savpp.SAVPPServer.State.*;
+import static me.noahandrews.savpp.SAVPPServer.State.CONNECTED;
+import static me.noahandrews.savpp.SAVPPServer.State.LISTENING;
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -44,9 +42,6 @@ import static org.junit.Assert.assertEquals;
  */
 
 public class SAVPPServerTest {
-    private SAVPPServer savppServer;
-
-    private Socket socket;
 
     private final String MD5_HASH = "5a73e7b6df89f85bb34129fcdfd7da12";
     private final String MD5_HASH_2 = "bedb04bb540934fda8b12ed4aaa2fc34";
@@ -59,30 +54,14 @@ public class SAVPPServerTest {
     @Rule
     public Timeout timeout = new Timeout(1000);
 
-    @Before
-    public void setUp() throws Exception {
-        savppServer = new SAVPPServer(MD5_HASH);
-        savppServer.startListening();
+    @Rule
+    public ServerConnector serverConnector = new ServerConnector(MD5_HASH);
 
-        while(savppServer.getState() != LISTENING) {}
-
-        logger.debug("Connecting socket to SAVPPServer");
-        socket = new Socket("localhost", SAVPPValues.PORT_NUMBER);
-    }
-
-    @After
-    public void tearDown() throws Exception {
-        socket.close();
-        savppServer.tearDown();
-    }
-
-    @Test
+    @Test @SkipServerSetup
     public void testServerCreation() throws Exception {
         printTestHeader("server creation test");
 
-        savppServer.tearDown(); //TODO: clean this mess up
-        while(savppServer.getState() != DESTROYED) {}
-        savppServer = new SAVPPServer(MD5_HASH);
+        SAVPPServer savppServer = new SAVPPServer(MD5_HASH);
         CountDownLatch latch = new CountDownLatch(1);
 
         savppServer.setEventHandler(new SAVPPServer.EventHandler() {
@@ -95,6 +74,7 @@ public class SAVPPServerTest {
 
         latch.await();
         assertEquals(LISTENING, savppServer.getState());
+        savppServer.tearDown();
     }
 
     @Test
@@ -103,7 +83,7 @@ public class SAVPPServerTest {
 
         CountDownLatch latch = new CountDownLatch(1);
         final String[] hash = new String[1];
-        savppServer.setEventHandler(new SAVPPServer.EventHandler() {
+        serverConnector.getServer().setEventHandler(new SAVPPServer.EventHandler() {
             @Override
             public void incorrectMD5HashReceived(String receivedHash) {
                 logger.debug("Received incorrect hash event");
@@ -114,24 +94,23 @@ public class SAVPPServerTest {
         submitConnectionRequest(MD5_HASH_2);
         latch.await();
         assertEquals(MD5_HASH_2, hash[0]);
-        assertEquals(LISTENING, savppServer.getState());
+        assertEquals(LISTENING, serverConnector.getServer().getState());
         //TODO: Assert that we get back an error packet
     }
 
     @Test
     public void testConnection() throws Exception {
         printTestHeader("connection test");
-
         connectToServer();
-        assertEquals(CONNECTED, savppServer.getState());
+        assertEquals(CONNECTED, serverConnector.getServer().getState());
     }
 
-    @Test
+    @Test @SkipServerSetup
     public void invalidHashRaisesException() throws Exception {
         printTestHeader("invalid hash test");
         thrown.expect(IllegalArgumentException.class);
         thrown.expectMessage("Invalid MD5 hash");
-        savppServer = new SAVPPServer("1234567890abcdef");
+        new SAVPPServer("1234567890abcdef");
     }
 
     @Test
@@ -140,9 +119,9 @@ public class SAVPPServerTest {
 
         logger.debug("Sending junk data");
 
-        socket.getOutputStream().write("This is not a SAVPP Message".getBytes());
+        serverConnector.getSocket().getOutputStream().write("This is not a SAVPP Message".getBytes());
 
-        InputStream inputStream = socket.getInputStream();
+        InputStream inputStream = serverConnector.getSocket().getInputStream();
         SAVPPMessage message = SAVPPMessage.parseDelimitedFrom(inputStream);
 
         assertEquals(SAVPPProto.Error.ErrorType.INVALID_DATA, message.getError().getType());
@@ -156,7 +135,7 @@ public class SAVPPServerTest {
         logger.debug("Submitting second connection request");
         submitConnectionRequest(MD5_HASH);
 
-        InputStream inputStream = socket.getInputStream();
+        InputStream inputStream = serverConnector.getSocket().getInputStream();
         SAVPPMessage message = SAVPPMessage.parseDelimitedFrom(inputStream);
 
         assertEquals(SAVPPProto.Error.ErrorType.ALREADY_CONNECTED, message.getError().getType());
@@ -173,14 +152,14 @@ public class SAVPPServerTest {
                 .setConnectionRequest(ConnectionRequest.newBuilder().setMd5(md5Hash))
                 .build();
 
-        connectionRequest.writeDelimitedTo(socket.getOutputStream());
+        connectionRequest.writeDelimitedTo(serverConnector.getSocket().getOutputStream());
         logger.traceExit();
     }
 
     private void connectToServer() throws IOException, InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
 
-        savppServer.setEventHandler(new SAVPPServer.EventHandler() {
+        serverConnector.getServer().setEventHandler(new SAVPPServer.EventHandler() {
             @Override
             public void connectionEstablished() {
                 latch.countDown();
