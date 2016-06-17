@@ -7,6 +7,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.junit.rules.Timeout;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -55,6 +56,9 @@ public class SAVPPServerTest {
     @Rule
     public ExpectedException thrown = ExpectedException.none();
 
+    @Rule
+    public Timeout timeout = new Timeout(1000);
+
     @Before
     public void setUp() throws Exception {
         savppServer = new SAVPPServer(MD5_HASH);
@@ -72,7 +76,7 @@ public class SAVPPServerTest {
         savppServer.tearDown();
     }
 
-    @Test(timeout = 1000)
+    @Test
     public void testServerCreation() throws Exception {
         printTestHeader("server creation test");
 
@@ -93,7 +97,7 @@ public class SAVPPServerTest {
         assertEquals(LISTENING, savppServer.getState());
     }
 
-    @Test(timeout = 1000)
+    @Test
     public void incorrectHash() throws Exception {
         printTestHeader("incorrect hash test");
 
@@ -114,7 +118,7 @@ public class SAVPPServerTest {
         //TODO: Assert that we get back an error packet
     }
 
-    @Test(timeout = 1000)
+    @Test
     public void testConnection() throws Exception {
         printTestHeader("connection test");
 
@@ -122,7 +126,7 @@ public class SAVPPServerTest {
         assertEquals(CONNECTED, savppServer.getState());
     }
 
-    @Test(timeout = 1000)
+    @Test
     public void invalidHashRaisesException() throws Exception {
         printTestHeader("invalid hash test");
         thrown.expect(IllegalArgumentException.class);
@@ -130,7 +134,7 @@ public class SAVPPServerTest {
         savppServer = new SAVPPServer("1234567890abcdef");
     }
 
-    @Test(timeout = 1000)
+    @Test
     public void invalidData() throws Exception {
         printTestHeader("invalid data test");
 
@@ -144,7 +148,7 @@ public class SAVPPServerTest {
         assertEquals(SAVPPProto.Error.ErrorType.INVALID_DATA, message.getError().getType());
     }
 
-    @Test(timeout = 1000)
+    @Test
     public void twoConnectionAttempts() throws Exception {
         printTestHeader("double connection test");
         connectToServer();
