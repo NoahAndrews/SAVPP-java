@@ -219,13 +219,10 @@ public class SAVPPServer {
         @Override
         public void run() {
             logger.traceEntry();
+
             if (getState() == CONNECTED) {
                 //TODO: Reject the connection, send back an error packet, and close the socket.
-                try {
-                    socket.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                sendErrorMessage(SAVPPProto.Error.ErrorType.NOT_ACCEPTING_CONNECTIONS);
                 return;
             }
 
@@ -237,6 +234,8 @@ public class SAVPPServer {
                     message = SAVPPMessage.parseDelimitedFrom(socket.getInputStream());
 
                     if (message.getType() != SAVPPMessage.MessageType.CONNECTION_REQUEST) {
+                    } else if(getState() != WAITING_FOR_HASH) {
+                       sendErrorMessage(SAVPPProto.Error.ErrorType.ALREADY_CONNECTED);
                     } else {
                         logger.debug("Connection request received");
                         String receivedHash = message.getConnectionRequest().getMd5();
@@ -251,19 +250,9 @@ public class SAVPPServer {
                             return;
                         }
                     }
-                } while (getState() != CONNECTED);
+                } while (!socket.isClosed());
             } catch (InvalidProtocolBufferException e) {
-                SAVPPMessage errorMessage = SAVPPMessage.newBuilder()
-                        .setType(SAVPPMessage.MessageType.ERROR)
-                        .setError(SAVPPProto.Error.newBuilder().setType(SAVPPProto.Error.ErrorType.INVALID_DATA).setMessage("Could not parse as SAVPPMessage"))
-                        .build();
-
-                try {
-                    logger.debug("Sending INVALID_DATA error packet");
-                    errorMessage.writeDelimitedTo(socket.getOutputStream());
-                } catch (IOException e1) {
-                    e1.printStackTrace();
-                }
+                sendErrorMessage(SAVPPProto.Error.ErrorType.INVALID_DATA);
 
             } catch (IOException e) {
                 e.printStackTrace();
@@ -271,6 +260,20 @@ public class SAVPPServer {
             }
             logger.debug("Connection handler shutting down.");
             logger.traceExit();
+        }
+
+        private void sendErrorMessage(SAVPPProto.Error.ErrorType errorType) {
+            try {
+                SAVPPMessage errorMessage = SAVPPMessage.newBuilder()
+                        .setType(SAVPPMessage.MessageType.ERROR)
+                        .setError(SAVPPProto.Error.newBuilder().setType(errorType))
+                        .build();
+                logger.debug("Sending error message of type " + errorType);
+                errorMessage.writeDelimitedTo(socket.getOutputStream());
+                socket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 

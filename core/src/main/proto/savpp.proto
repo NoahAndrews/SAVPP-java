@@ -47,6 +47,8 @@ message ConnectionRequest {
 message Error {
     enum ErrorType {
         INVALID_DATA = 1;
+        NOT_ACCEPTING_CONNECTIONS = 2;
+        ALREADY_CONNECTED = 3;
     }
     required ErrorType type = 1;
     optional string message = 2;

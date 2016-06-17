@@ -93,7 +93,7 @@ public class SAVPPServerTest {
         assertEquals(LISTENING, savppServer.getState());
     }
 
-    @Test(timeout = 2000)
+    @Test(timeout = 1000)
     public void incorrectHash() throws Exception {
         printTestHeader("incorrect hash test");
 
@@ -111,24 +111,14 @@ public class SAVPPServerTest {
         latch.await();
         assertEquals(MD5_HASH_2, hash[0]);
         assertEquals(LISTENING, savppServer.getState());
+        //TODO: Assert that we get back an error packet
     }
 
     @Test(timeout = 1000)
     public void testConnection() throws Exception {
         printTestHeader("connection test");
 
-        CountDownLatch latch = new CountDownLatch(1);
-
-        savppServer.setEventHandler(new SAVPPServer.EventHandler() {
-            @Override
-            public void connectionEstablished() {
-                latch.countDown();
-            }
-        });
-
-        submitConnectionRequest(MD5_HASH);
-
-        latch.await();
+        connectToServer();
         assertEquals(CONNECTED, savppServer.getState());
     }
 
@@ -140,18 +130,32 @@ public class SAVPPServerTest {
         savppServer = new SAVPPServer("1234567890abcdef");
     }
 
-    @Test(timeout = 3000)
+    @Test(timeout = 1000)
     public void invalidData() throws Exception {
         printTestHeader("invalid data test");
 
-        System.out.println("Sending junk data");
+        logger.debug("Sending junk data");
 
         socket.getOutputStream().write("This is not a SAVPP Message".getBytes());
 
         InputStream inputStream = socket.getInputStream();
-
         SAVPPMessage message = SAVPPMessage.parseDelimitedFrom(inputStream);
+
         assertEquals(SAVPPProto.Error.ErrorType.INVALID_DATA, message.getError().getType());
+    }
+
+    @Test(timeout = 1000)
+    public void twoConnectionAttempts() throws Exception {
+        printTestHeader("double connection test");
+        connectToServer();
+
+        logger.debug("Submitting second connection request");
+        submitConnectionRequest(MD5_HASH);
+
+        InputStream inputStream = socket.getInputStream();
+        SAVPPMessage message = SAVPPMessage.parseDelimitedFrom(inputStream);
+
+        assertEquals(SAVPPProto.Error.ErrorType.ALREADY_CONNECTED, message.getError().getType());
     }
 
     private void printTestHeader(String descriptor) {
@@ -167,6 +171,21 @@ public class SAVPPServerTest {
 
         connectionRequest.writeDelimitedTo(socket.getOutputStream());
         logger.traceExit();
+    }
+
+    private void connectToServer() throws IOException, InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+
+        savppServer.setEventHandler(new SAVPPServer.EventHandler() {
+            @Override
+            public void connectionEstablished() {
+                latch.countDown();
+            }
+        });
+
+        submitConnectionRequest(MD5_HASH);
+
+        latch.await();
     }
 
     //TODO: Test what happens when something other than a SAVPPMessage is sent
@@ -191,7 +210,9 @@ public class SAVPPServerTest {
 
     //TODO: There should be an optional human-readable identifier that can be specified in ConnectionRequest
 
-    //TODO: If a second connection attempt is made while a connection is active, we should get back an error packet.
+    //TODO: If a connection attempt is made from a second soket while a connection is active, we should get back an error packet and a closed socket.
+
+    //TODO: If a connection attempt is made from a connected socket, we should get back a "you're already connected" error packet and a maintained socket.
 
     //TODO: Verify proper destruction
 }
