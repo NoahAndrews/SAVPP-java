@@ -40,7 +40,7 @@ import static org.junit.Assert.assertEquals;
  * SOFTWARE.
  */
 
-public class SAVPPServerTest {
+public class ConnectionTests {
     @Rule
     public ExpectedException thrown = ExpectedException.none();
 
