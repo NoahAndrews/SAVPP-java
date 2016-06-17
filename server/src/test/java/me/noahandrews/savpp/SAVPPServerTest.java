@@ -1,22 +1,19 @@
 package me.noahandrews.savpp;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.rules.Timeout;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.net.Socket;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import static me.noahandrews.savpp.SAVPPProto.ConnectionRequest;
 import static me.noahandrews.savpp.SAVPPProto.SAVPPMessage;
 import static me.noahandrews.savpp.SAVPPServer.State.CONNECTED;
 import static me.noahandrews.savpp.SAVPPServer.State.LISTENING;
+import static me.noahandrews.savpp.TestUtils.*;
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -44,12 +41,6 @@ import static org.junit.Assert.assertEquals;
  */
 
 public class SAVPPServerTest {
-
-    private final String MD5_HASH = "5a73e7b6df89f85bb34129fcdfd7da12";
-    private final String MD5_HASH_2 = "bedb04bb540934fda8b12ed4aaa2fc34";
-
-    Logger logger = LogManager.getLogger();
-
     @Rule
     public ExpectedException thrown = ExpectedException.none();
 
@@ -58,6 +49,8 @@ public class SAVPPServerTest {
 
     @Rule
     public ServerConnector serverConnector = new ServerConnector(MD5_HASH);
+
+    TestUtils testUtils = new TestUtils(serverConnector);
 
     @Test @SkipServerSetup
     public void testServerCreation() throws Exception {
@@ -93,7 +86,7 @@ public class SAVPPServerTest {
                 latch.countDown();
             }
         });
-        submitConnectionRequest(MD5_HASH_2);
+        testUtils.submitConnectionRequest(MD5_HASH_2);
         latch.await();
         assertEquals(MD5_HASH_2, hash[0]);
         assertEquals(LISTENING, serverConnector.getServer().getState());
@@ -103,7 +96,7 @@ public class SAVPPServerTest {
     @Test
     public void testConnection() throws Exception {
         printTestHeader("connection test");
-        connectToServer();
+        testUtils.connectToServer();
         assertEquals(CONNECTED, serverConnector.getServer().getState());
     }
 
@@ -132,10 +125,10 @@ public class SAVPPServerTest {
     @Test
     public void twoConnectionRequests() throws Exception {
         printTestHeader("double connection request test");
-        connectToServer();
+        testUtils.connectToServer();
 
         logger.debug("Submitting second connection request");
-        submitConnectionRequest(MD5_HASH);
+        testUtils.submitConnectionRequest();
 
         InputStream inputStream = serverConnector.getSocket().getInputStream();
         SAVPPMessage message = SAVPPMessage.parseDelimitedFrom(inputStream);
@@ -146,7 +139,7 @@ public class SAVPPServerTest {
     @Test
     public void twoSocketConnections() throws Exception {
         printTestHeader("double connection request test");
-        connectToServer();
+        testUtils.connectToServer();
 
         Socket socket = new Socket("localhost", SAVPPValues.PORT_NUMBER);
 
@@ -154,36 +147,6 @@ public class SAVPPServerTest {
 
         assertEquals(SAVPPProto.Error.ErrorType.NOT_ACCEPTING_CONNECTIONS, message.getError().getType());
         assertEquals(-1, socket.getInputStream().read());
-    }
-
-    private void printTestHeader(String descriptor) {
-        System.out.println("\n\nRunning " + descriptor + "\n==========================================================");
-    }
-
-    private void submitConnectionRequest(String md5Hash) throws IOException {
-        logger.traceEntry();
-        SAVPPMessage connectionRequest = SAVPPMessage.newBuilder()
-                .setType(SAVPPMessage.MessageType.CONNECTION_REQUEST)
-                .setConnectionRequest(ConnectionRequest.newBuilder().setMd5(md5Hash))
-                .build();
-
-        connectionRequest.writeDelimitedTo(serverConnector.getSocket().getOutputStream());
-        logger.traceExit();
-    }
-
-    private void connectToServer() throws IOException, InterruptedException {
-        CountDownLatch latch = new CountDownLatch(1);
-
-        serverConnector.getServer().setEventHandler(new SAVPPServer.EventHandler() {
-            @Override
-            public void connectionEstablished() {
-                latch.countDown();
-            }
-        });
-
-        submitConnectionRequest(MD5_HASH);
-
-        latch.await();
     }
 
     //TODO: Test that when something other than a SAVPPMessage is sent, other messages can be sent successfully afterward
