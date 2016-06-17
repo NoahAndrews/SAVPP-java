@@ -223,6 +223,11 @@ public class SAVPPServer {
             if (getState() == CONNECTED) {
                 //TODO: Reject the connection, send back an error packet, and close the socket.
                 sendErrorMessage(SAVPPProto.Error.ErrorType.NOT_ACCEPTING_CONNECTIONS);
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
                 return;
             }
 

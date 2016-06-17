@@ -9,6 +9,7 @@ import org.junit.rules.Timeout;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.Socket;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -129,8 +130,8 @@ public class SAVPPServerTest {
     }
 
     @Test
-    public void twoConnectionAttempts() throws Exception {
-        printTestHeader("double connection test");
+    public void twoConnectionRequests() throws Exception {
+        printTestHeader("double connection request test");
         connectToServer();
 
         logger.debug("Submitting second connection request");
@@ -140,6 +141,19 @@ public class SAVPPServerTest {
         SAVPPMessage message = SAVPPMessage.parseDelimitedFrom(inputStream);
 
         assertEquals(SAVPPProto.Error.ErrorType.ALREADY_CONNECTED, message.getError().getType());
+    }
+
+    @Test
+    public void twoSocketConnections() throws Exception {
+        printTestHeader("double connection request test");
+        connectToServer();
+
+        Socket socket = new Socket("localhost", SAVPPValues.PORT_NUMBER);
+
+        SAVPPMessage message = SAVPPMessage.parseDelimitedFrom(socket.getInputStream());
+
+        assertEquals(SAVPPProto.Error.ErrorType.NOT_ACCEPTING_CONNECTIONS, message.getError().getType());
+        assertEquals(-1, socket.getInputStream().read());
     }
 
     private void printTestHeader(String descriptor) {
@@ -193,10 +207,6 @@ public class SAVPPServerTest {
     //TODO: Test adding multiple event handlers
 
     //TODO: There should be an optional human-readable identifier that can be specified in ConnectionRequest
-
-    //TODO: If a connection attempt is made from a second soket while a connection is active, we should get back an error packet and a closed socket.
-
-    //TODO: If a connection attempt is made from a connected socket, we should get back a "you're already connected" error packet and a maintained socket.
 
     //TODO: Verify proper destruction
 }
