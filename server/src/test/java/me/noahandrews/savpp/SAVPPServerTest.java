@@ -186,27 +186,26 @@ public class SAVPPServerTest {
         latch.await();
     }
 
-    //TODO: Test what happens when something other than a SAVPPMessage is sent
+    //TODO: Test that when something other than a SAVPPMessage is sent, other messages can be sent successfully afterward
 
     //TODO: When the first SAVPPMessage is something other than a ConnectionRequest, expect an error packet
     //TODO: Sending a ConnectionRequest at this point should result in a successful connection.
 
     //TODO: Test what happens when a process is already bound to the SAVPP port
 
-    //TODO: If tearDown has been called, calling any other method should result in an exception.
-
     //TODO: Write tests to go from manual state verification to automated state verification
 
-    //TODO: If a valid but incorrect MD5 hash is received, expect an event to alert us as well as an error packet to be sent to the guest
-    //TODO: Sending a valid MD5 has at this point should result in a successful connection.
-
-    //TODO: Once a connection is initiated, it must be established in 5 seconds or the connection is shut down.
-
-    //TODO: When a connection is fully established, the host should send the guest the current timestamp.
+    //TODO: When a connection is fully established, the host should send the guest the current timestamp in the form of a scrubbing message.
 
     //TODO: Test adding multiple event handlers
 
     //TODO: There should be an optional human-readable identifier that can be specified in ConnectionRequest
+    //TODO: When the ConnectionRequest is recieved, the API consumer should be notified, informed of the ID, and given the option to accept or deny
 
     //TODO: Verify proper destruction
+
+    //TODO: When we support multiple clients, each client should have its own event handler. ConnectionEstablished should be moved there.
+
+    //TODO: If a connection request is received from a different socket while in state WAITING_FOR_AUTHORIZATION, deny the second request
+    //TODO: If a connection request is received from a different socket while in state WAITING_FOR_HASH, close the first socket and act on the second.
 }

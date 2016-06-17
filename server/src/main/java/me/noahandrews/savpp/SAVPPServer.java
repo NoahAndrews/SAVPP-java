@@ -258,7 +258,6 @@ public class SAVPPServer {
                 } while (!socket.isClosed());
             } catch (InvalidProtocolBufferException e) {
                 sendErrorMessage(SAVPPProto.Error.ErrorType.INVALID_DATA);
-
             } catch (IOException e) {
                 e.printStackTrace();
                 //TODO: handle this somehow
@@ -292,4 +291,7 @@ public class SAVPPServer {
         public void serverStarted() {
         }
     }
+
+    //TODO: ConnectionHandler should be its own class. Furthermore, it should consist of little more than a looping switch,
+    //TODO: that defers to other classes to handle the different types of messages.
 }
