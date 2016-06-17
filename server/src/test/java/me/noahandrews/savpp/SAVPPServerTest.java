@@ -10,6 +10,7 @@ import org.junit.rules.Timeout;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static me.noahandrews.savpp.SAVPPProto.ConnectionRequest;
 import static me.noahandrews.savpp.SAVPPProto.SAVPPMessage;
@@ -52,7 +53,7 @@ public class SAVPPServerTest {
     public ExpectedException thrown = ExpectedException.none();
 
     @Rule
-    public Timeout timeout = new Timeout(1000);
+    public Timeout timeout = new Timeout(1000, TimeUnit.MILLISECONDS);
 
     @Rule
     public ServerConnector serverConnector = new ServerConnector(MD5_HASH);
@@ -68,7 +69,7 @@ public class SAVPPServerTest {
             @Override
             public void serverStarted() {
                 latch.countDown();
-            }
+            } //Verify that the serverStarted method is being called
         });
         savppServer.startListening();
 
