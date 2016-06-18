@@ -45,7 +45,7 @@ public class ConnectionTests {
     public ExpectedException thrown = ExpectedException.none();
 
     @Rule
-    public Timeout timeout = new Timeout(1000, TimeUnit.MILLISECONDS);
+    public Timeout timeout = new Timeout(1000000, TimeUnit.MILLISECONDS);
 
     @Rule
     public ServerConnector serverConnector = new ServerConnector(MD5_HASH);
@@ -97,7 +97,12 @@ public class ConnectionTests {
     public void testConnection() throws Exception {
         printTestHeader("connection test");
         testUtils.connectToServer();
+
         assertEquals(CONNECTED, serverConnector.getServer().getState());
+
+        SAVPPMessage message = SAVPPMessage.parseDelimitedFrom(serverConnector.getSocket().getInputStream());
+        assertEquals(SAVPPMessage.MessageType.SEEK_COMMAND, message.getType());
+        assertEquals(message.getSeekCommand().getTimestamp(), 0);
     }
 
     @Test @SkipServerSetup
@@ -126,13 +131,15 @@ public class ConnectionTests {
     public void twoConnectionRequests() throws Exception {
         printTestHeader("double connection request test");
         testUtils.connectToServer();
+        SAVPPMessage message1 = SAVPPMessage.parseDelimitedFrom(serverConnector.getSocket().getInputStream());
+        assertEquals(SAVPPMessage.MessageType.SEEK_COMMAND, message1.getType());
 
         logger.debug("Submitting second connection request");
         testUtils.submitConnectionRequest();
 
         InputStream inputStream = serverConnector.getSocket().getInputStream();
         SAVPPMessage message = SAVPPMessage.parseDelimitedFrom(inputStream);
-
+        assertEquals(SAVPPMessage.MessageType.ERROR, message.getType());
         assertEquals(SAVPPProto.Error.ErrorType.ALREADY_CONNECTED, message.getError().getType());
     }
 
@@ -164,6 +171,7 @@ public class ConnectionTests {
 
     //TODO: There should be an optional human-readable identifier that can be specified in ConnectionRequest
     //TODO: When the ConnectionRequest is recieved, the API consumer should be notified, informed of the ID, and given the option to accept or deny
+    //TODO: If no ID was specified, give a name of "Unamed guest"
 
     //TODO: Verify proper destruction
 

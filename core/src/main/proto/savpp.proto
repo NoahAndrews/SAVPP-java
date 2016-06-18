@@ -31,17 +31,14 @@ message SAVPPMessage {
     enum MessageType {
         ERROR = 1;
         CONNECTION_REQUEST = 2;
+        SEEK_COMMAND = 3;
     }
 
     required MessageType type = 1;
 
     optional Error error = 2;
     optional ConnectionRequest connectionRequest = 3;
-}
-
-
-message ConnectionRequest {
-    required string md5 = 1;
+    optional SeekCommand seekCommand = 4;
 }
 
 message Error {
@@ -52,4 +49,12 @@ message Error {
     }
     required ErrorType type = 1;
     optional string message = 2;
+}
+
+message ConnectionRequest {
+    required string md5 = 1;
+}
+
+message SeekCommand {
+    required int32 timestamp = 1;
 }

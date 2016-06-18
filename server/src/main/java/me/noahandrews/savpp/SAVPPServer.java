@@ -247,6 +247,18 @@ public class SAVPPServer {
                         if (receivedHash.equals(md5Hash)) {
                             setState(CONNECTED);
                             getEventHandler().connectionEstablished();
+                            int timestamp;
+                            if(getEventHandler() != null) {
+                                timestamp = getEventHandler().timestampRequested();
+                            } else {
+                                timestamp = 0;
+                            }
+
+                            SAVPPMessage seekMessage = SAVPPMessage.newBuilder()
+                                    .setType(SAVPPMessage.MessageType.SEEK_COMMAND)
+                                    .setSeekCommand(SAVPPProto.SeekCommand.newBuilder().setTimestamp(timestamp))
+                                    .build();
+                            seekMessage.writeDelimitedTo(socket.getOutputStream());
                         } else {
                             logger.debug("Incorrect hash received");
                             setState(LISTENING);
@@ -257,6 +269,7 @@ public class SAVPPServer {
                     }
                 } while (!socket.isClosed());
             } catch (InvalidProtocolBufferException e) {
+                e.printStackTrace();
                 sendErrorMessage(SAVPPProto.Error.ErrorType.INVALID_DATA);
             } catch (IOException e) {
                 e.printStackTrace();
@@ -282,14 +295,19 @@ public class SAVPPServer {
     }
 
     public static abstract class EventHandler {
-        public void connectionEstablished() {
+        public void serverStarted() {}
+
+        public boolean connectionRequested(String identifier) {
+            return true;
         }
 
-        public void incorrectMD5HashReceived(String receivedHash) {
+        public void connectionEstablished() {}
+
+        public int timestampRequested() {
+            return 0;
         }
 
-        public void serverStarted() {
-        }
+        public void incorrectMD5HashReceived(String receivedHash) {}
     }
 
     //TODO: ConnectionHandler should be its own class. Furthermore, it should consist of little more than a looping switch,
