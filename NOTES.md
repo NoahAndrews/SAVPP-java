@@ -40,6 +40,7 @@
 
 # Notes about what the Java API will look like
 * When the last user disconnects, run a special callback.
+
 ### Error handling
 * If it's an error about something the API consumer just did, we should throw an exception if possible
 * If it's any other kind of error, like if a user disconnects, we should run a callback method
