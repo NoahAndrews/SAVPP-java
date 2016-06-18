@@ -35,6 +35,7 @@
 * HostResponse message contains an approve/deny enum
 * Network communication will take place over a raw socket on [port 4440.](http://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml?&page=82) 
 * Protocol buffer messages will be sent delimited
+* Timestamps will be sent as the number of milliseconds since the beginning of the file
 
 
 
