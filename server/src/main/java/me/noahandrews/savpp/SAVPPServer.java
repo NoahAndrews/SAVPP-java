@@ -5,6 +5,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -50,6 +51,8 @@ public class SAVPPServer {
     private List<FutureTask<?>> connectionHandlerTasks;
     private FutureTask<?> connectionListenerTask;
 
+    private List<OutputStream> connectedClientOutputStreams;
+
     private ServerSocket serverSocket;
 
     private EventHandler eventHandler;
@@ -65,6 +68,9 @@ public class SAVPPServer {
 
         connectionHandlerExecutor = Executors.newCachedThreadPool();
         connectionHandlerTasks = Collections.synchronizedList(new ArrayList<>(1));
+
+        connectedClientOutputStreams = Collections.synchronizedList(new ArrayList<>(1));
+
         logger.traceExit();
     }
 
@@ -114,6 +120,16 @@ public class SAVPPServer {
 
     private synchronized ServerSocket getServerSocket() {
         return serverSocket;
+    }
+
+    private synchronized void sendMessageToAllConnectedClients(SAVPPMessage message) throws IOException {
+        for(OutputStream stream: connectedClientOutputStreams) {
+            message.writeDelimitedTo(stream);
+        }
+    }
+
+    private synchronized void sendMessage(OutputStream stream, SAVPPMessage message) throws IOException {
+        message.writeDelimitedTo(stream);
     }
 
     private synchronized void setServerSocket(ServerSocket serverSocket) {
@@ -241,6 +257,7 @@ public class SAVPPServer {
                     if (message.getType() != SAVPPMessage.MessageType.CONNECTION_REQUEST) {
                     } else if(getState() != WAITING_FOR_HASH) {
                        sendErrorMessage(SAVPPProto.Error.ErrorType.ALREADY_CONNECTED);
+                        socket.close();
                     } else {
                         logger.debug("Connection request received");
                         String receivedHash = message.getConnectionRequest().getMd5();
@@ -258,7 +275,7 @@ public class SAVPPServer {
                                     .setType(SAVPPMessage.MessageType.SEEK_COMMAND)
                                     .setSeekCommand(SAVPPProto.SeekCommand.newBuilder().setTimestamp(timestamp))
                                     .build();
-                            seekMessage.writeDelimitedTo(socket.getOutputStream());
+                            sendMessage(socket.getOutputStream(), seekMessage);
                         } else {
                             logger.debug("Incorrect hash received");
                             setState(LISTENING);
@@ -286,8 +303,7 @@ public class SAVPPServer {
                         .setError(SAVPPProto.Error.newBuilder().setType(errorType))
                         .build();
                 logger.debug("Sending error message of type " + errorType);
-                errorMessage.writeDelimitedTo(socket.getOutputStream());
-                socket.close();
+                sendMessage(socket.getOutputStream(), errorMessage);
             } catch (IOException e) {
                 e.printStackTrace();
             }
