@@ -1,3 +1,59 @@
+/*plugins {
+    id 'com.jfrog.bintray' version '1.6'
+}*/
+
+apply plugin: 'maven'
+apply plugin: 'maven-publish'
+
+group 'me.noahandrews.savpp.server'
+version '0.0.1-SNAPSHOT'
+
 dependencies {
     compile project(':core')
 }
+
+publishing {
+    publications {
+        server(MavenPublication) {
+            from components.java
+
+            groupId 'me.noahandrews.savpp.server'
+            artifactId 'savpp-server'
+            version "$version"
+
+            artifact('../core/build/libs/core.jar') {
+                classifier "core"
+            }
+
+            pom.withXml {
+                asNode().dependencies.dependency.each {
+                    def artifactId = it.artifactId.text()
+                    if(artifactId == 'core') {
+                        it.parent().remove(it)
+                    }
+                }
+            }
+        }
+    }
+}
+/*
+
+bintray {
+    user = 'noahandrews'
+    key = System.getenv('BINTRAY_KEY')
+    pkg {
+        repo = 'maven'
+        name = 'savpp-server'
+        licenses = {'MIT'}
+        vcsUrl = 'https://github.com/noahandrews/savpp-java.git'
+
+        version {
+            name = '0.0.1'
+            released = new Date()
+        }
+    }
+    publications = ['MyPublication']
+    configurations = ['archives']
+}
+*/
+

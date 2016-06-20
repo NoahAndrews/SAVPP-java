@@ -1,6 +1,4 @@
 allprojects {
-    group 'me.noahandrews.savpp-java'
-    version '0.1-SNAPSHOT'
 }
 subprojects {
     apply plugin: 'java'
