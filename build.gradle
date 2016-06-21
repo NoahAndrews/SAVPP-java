@@ -1,4 +1,5 @@
 allprojects {
+    group 'me.noahandrews.savpp'
 }
 subprojects {
     apply plugin: 'java'

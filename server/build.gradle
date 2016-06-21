@@ -5,7 +5,6 @@
 apply plugin: 'maven'
 apply plugin: 'maven-publish'
 
-group 'me.noahandrews.savpp.server'
 version '0.0.1-SNAPSHOT'
 
 dependencies {
@@ -17,7 +16,7 @@ publishing {
         server(MavenPublication) {
             from components.java
 
-            groupId 'me.noahandrews.savpp.server'
+            groupId "$group"
             artifactId 'savpp-server'
             version "$version"
 
