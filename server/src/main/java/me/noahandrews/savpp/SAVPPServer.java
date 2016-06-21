@@ -18,7 +18,7 @@ import static me.noahandrews.savpp.MD5Checker.isHashValid;
 import static me.noahandrews.savpp.SAVPPProto.SAVPPMessage;
 import static me.noahandrews.savpp.SAVPPServer.State.*;
 
-/**
+/*
  * MIT License
  * <p>
  * Copyright (c) 2016 Noah Andrews
@@ -59,6 +59,10 @@ public class SAVPPServer {
 
     private final String md5Hash;
 
+    /**
+     * Creates a SAVPPServer for a file with a given MD5 hash
+     * @param md5Hash
+     */
     public SAVPPServer(String md5Hash) {
         logger.traceEntry();
         if(!isHashValid(md5Hash)) {
