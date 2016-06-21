@@ -14,8 +14,8 @@ repositories {
     mavenLocal()
 }
 
-apply plugin: 'com.google.protobuf'
 apply plugin: 'idea'
+apply plugin: 'com.google.protobuf'
 
 protobuf {
     protoc {
