@@ -216,6 +216,9 @@ public class SAVPPServer {
                     } catch (IOException e1) {
                         e1.printStackTrace();
                     }
+                    if(socket == null) {
+                        continue; //Prevent an extra handler from being started during SAVPPServer shutdown.
+                    }
                     logger.debug("Starting connection handler");
                     connectionHandlerTasks.add((FutureTask) connectionHandlerExecutor.submit(new ConnectionHandler(socket)));
                 }
