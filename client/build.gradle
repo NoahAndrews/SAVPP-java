@@ -1,32 +1,6 @@
-apply plugin: 'maven-publish'
-
+archivesBaseName = "savpp-client"
 version '0.0.1-SNAPSHOT'
 
 dependencies {
     compile project(':core')
-}
-
-publishing {
-    publications {
-        client(MavenPublication) {
-            from components.java
-
-            groupId "$group"
-            artifactId 'savpp-client'
-            version "$version"
-
-            artifact('../core/build/libs/core.jar') {
-                classifier "core"
-            }
-
-            pom.withXml {
-                asNode().dependencies.dependency.each {
-                    def artifactId = it.artifactId.text()
-                    if(artifactId == 'core') {
-                        it.parent().remove(it)
-                    }
-                }
-            }
-        }
-    }
 }

@@ -3,6 +3,8 @@ allprojects {
 }
 subprojects {
     apply plugin: 'java'
+    apply plugin: 'maven'
+    apply plugin: 'signing'
 
     repositories {
         jcenter()
@@ -25,6 +27,59 @@ subprojects {
     test {
         testLogging {
             events "passed", "skipped", "failed", "standardOut", "standardError"
+        }
+    }
+
+
+    task sourcesJar(type: Jar) {
+        from sourceSets.main.allSource
+    }
+
+    signing {
+        sign configurations.archives
+    }
+
+    uploadArchives {
+        repositories {
+            mavenDeployer {
+                beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment)}
+
+                repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
+                    authentication(userName: ossrhUsername, password: ossrhPassword)
+                }
+
+                snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
+                    authentication(userName: ossrhUsername, password: ossrhPassword)
+                }
+
+                pom.project {
+                    name 'SAVPP Server Library'
+                    packaging 'jar'
+                    description 'A library that allows an application to act as a Synchronized Audio/Video Playback Protocol (SAVPP) server.'
+                    url 'http://savpp.noahandrews.me'
+
+                    scm {
+                        connection 'scm:git:https://github.com/NoahAndrews/SAVPP-java.git'
+                        developerConnection 'scm:git:https://github.com/NoahAndrews/SAVPP-java.git'
+                        url 'https://github.com/NoahAndrews/SAVPP-java'
+                    }
+
+                    licenses {
+                        license {
+                            name 'MIT License'
+                            url 'http://opensource.org/licenses/mit-license.php'
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            id 'NoahAndrews'
+                            name 'Noah Andrews'
+                            email 'NoahAndrews@users.noreply.github.com'
+                        }
+                    }
+                }
+            }
         }
     }
 }
