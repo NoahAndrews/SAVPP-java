@@ -51,7 +51,7 @@ public class SAVPPServer {
     private List<FutureTask<?>> connectionHandlerTasks;
     private FutureTask<?> connectionListenerTask;
 
-    private List<OutputStream> connectedClientOutputStreams;
+    private List<Socket> connectedSockets;
 
     private ServerSocket serverSocket;
 
@@ -69,7 +69,7 @@ public class SAVPPServer {
         connectionHandlerExecutor = Executors.newCachedThreadPool();
         connectionHandlerTasks = Collections.synchronizedList(new ArrayList<>(1));
 
-        connectedClientOutputStreams = Collections.synchronizedList(new ArrayList<>(1));
+        connectedSockets = Collections.synchronizedList(new ArrayList<>(1));
 
         logger.traceExit();
     }
@@ -123,8 +123,8 @@ public class SAVPPServer {
     }
 
     private synchronized void sendMessageToAllConnectedClients(SAVPPMessage message) throws IOException {
-        for(OutputStream stream: connectedClientOutputStreams) {
-            message.writeDelimitedTo(stream);
+        for(Socket socket: connectedSockets) {
+            message.writeDelimitedTo(socket.getOutputStream());
         }
     }
 
@@ -138,7 +138,11 @@ public class SAVPPServer {
 
     public void tearDown() throws ExecutionException, InterruptedException, IOException {
         setState(DESTROYING);
-        //TODO: Tear down all sockets cleanly
+
+        for(Socket socket: connectedSockets) {
+            socket.close();
+        }
+
         int initialNumberOfRunningHandlers = ((ThreadPoolExecutor)connectionHandlerExecutor).getActiveCount();
         boolean wasConnectionListenerInitiallyRunning;
         if(connectionListenerTask == null || connectionListenerTask.isDone()) {
@@ -237,7 +241,6 @@ public class SAVPPServer {
             logger.traceEntry();
 
             if (getState() == CONNECTED) {
-                //TODO: Reject the connection, send back an error packet, and close the socket.
                 sendErrorMessage(SAVPPProto.Error.ErrorType.NOT_ACCEPTING_CONNECTIONS);
                 try {
                     socket.close();
@@ -264,6 +267,7 @@ public class SAVPPServer {
                         if (receivedHash.equals(md5Hash)) {
                             setState(CONNECTED);
                             getEventHandler().connectionEstablished();
+                            connectedSockets.add(socket);
                             int timestamp;
                             if(getEventHandler() != null) {
                                 timestamp = getEventHandler().timestampRequested();
