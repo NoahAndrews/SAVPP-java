@@ -297,7 +297,7 @@ public class SAVPPServer {
                     }
                 } while (!socket.isClosed());
             } catch (InvalidProtocolBufferException e) {
-                e.printStackTrace();
+                logger.debug("Invalid data received.");
                 sendErrorMessage(SAVPPProto.Error.ErrorType.INVALID_DATA);
             } catch (IOException e) {
                 e.printStackTrace();
