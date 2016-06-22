@@ -61,7 +61,7 @@ public class SAVPPServer {
 
     /**
      * Creates a SAVPPServer for a file with a given MD5 hash
-     * @param md5Hash
+     * @param md5Hash The MD5 hash to expect from connecting clients
      */
     public SAVPPServer(String md5Hash) {
         logger.traceEntry();

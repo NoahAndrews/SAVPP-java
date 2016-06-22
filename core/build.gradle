@@ -32,3 +32,10 @@ idea {
         sourceDirs += file("${protobuf.generatedFilesBaseDir}/main/java");
     }
 }
+
+javadoc.enabled = false
+
+javadocJar {
+    archiveName "savpp-core-$version-javadoc.jar"
+    from 'empty-javadoc-readme.txt'
+}
