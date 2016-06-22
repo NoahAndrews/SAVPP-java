@@ -45,10 +45,11 @@ subprojects {
         sign configurations.archives
     }
 
+    signArchives.enabled = (System.getenv('CI') != 'true')
+
     artifacts {
         archives javadocJar, sourcesJar
     }
-
 
     uploadArchives {
         repositories {
