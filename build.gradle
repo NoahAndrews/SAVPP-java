@@ -57,11 +57,11 @@ subprojects {
                 beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment)}
 
                 repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
-                    authentication(userName: System.getenv('OSSRH_USERNAME'), password: System.getenv('OSSRH_PASSWORD'))
+                    authentication(userName: OSSRH_USERNAME, password: OSSRH_PASSWORD)
                 }
 
                 snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
-                    authentication(userName: System.getenv('OSSRH_USERNAME'), password: System.getenv('OSSRH_PASSWORD'))
+                    authentication(userName: OSSRH_USERNAME, password: OSSRH_PASSWORD)
                 }
 
                 pom.project {
