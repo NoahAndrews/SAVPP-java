@@ -16,6 +16,8 @@ versioneye {
     exclude 'testCompile', 'testRuntime', 'testCompileClasspath', 'testCompileOnly'
 }
 
+
+
 allprojects {
     group 'me.noahandrews.savpp'
 }
@@ -38,6 +40,8 @@ subprojects {
     }
 
     assemble.finalizedBy(versionEyeUpdate)
+    versionEyeUpdate.enabled = (System.getenv('CI') != 'true')
+
 
     tasks.withType(JavaCompile) {
         options.compilerArgs << "-Xlint:deprecation"
