@@ -16,7 +16,9 @@ versioneye {
     exclude 'testCompile', 'testRuntime', 'testCompileClasspath', 'testCompileOnly'
 }
 
-versionEyeUpdate.enabled = (System.getenv('CI') != 'true')
+versionEyeUpdate {
+    enabled = (System.getenv('CI') != 'true')
+}
 
 allprojects {
     group 'me.noahandrews.savpp'
