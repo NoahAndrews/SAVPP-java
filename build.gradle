@@ -1,6 +1,25 @@
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'org.standardout:gradle-versioneye-plugin:1.4.0'
+    }
+}
+
+apply plugin: 'org.standardout.versioneye'
+
+versioneye {
+    includeSubProjects = true
+    dependencies = transitive
+    includePlugins = false
+    exclude 'testCompile', 'testRuntime', 'testCompileClasspath', 'testCompileOnly'
+}
+
 allprojects {
     group 'me.noahandrews.savpp'
 }
+
 subprojects {
     apply plugin: 'java'
     apply plugin: 'maven'
@@ -17,6 +36,8 @@ subprojects {
         testCompile 'junit:junit:4.12'
         testCompile 'org.mockito:mockito-core:1.+'
     }
+
+    assemble.finalizedBy(versionEyeUpdate)
 
     tasks.withType(JavaCompile) {
         options.compilerArgs << "-Xlint:deprecation"
