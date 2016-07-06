@@ -16,10 +16,6 @@ versioneye {
     exclude 'testCompile', 'testRuntime', 'testCompileClasspath', 'testCompileOnly'
 }
 
-versionEyeUpdate {
-    enabled = (System.getenv('CI') != 'true')
-}
-
 allprojects {
     group 'me.noahandrews.savpp'
 }
@@ -41,7 +37,10 @@ subprojects {
         testCompile 'org.mockito:mockito-core:1.+'
     }
 
-    assemble.finalizedBy(versionEyeUpdate)
+    if(System.getenv('CI') != 'true') {
+        assemble.finalizedBy(versionEyeUpdate)
+    }
+
 
     tasks.withType(JavaCompile) {
         options.compilerArgs << "-Xlint:deprecation"
