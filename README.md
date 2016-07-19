@@ -1,9 +1,11 @@
 # SAVPP-java
 Java library for the Synchronized Audio/Video Playback Protocol. I'm developing this protocol to be used in [this project.](https://github.com/NoahAndrews/SynchronizedMediaPlayer)
 
-[![Build Status](https://travis-ci.org/NoahAndrews/SAVPP-java.svg?branch=master)](https://travis-ci.org/NoahAndrews/SAVPP-java)
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/NoahAndrews/SAVPP-java/master/LICENSE)
 
-[![Dependency Status](https://www.versioneye.com/user/projects/577c5dba649a6f000d0469ed//badge.svg?style=flat-square)](https://www.versioneye.com/user/projects/577c5dba649a6f000d0469ed/)
+[![Build Status](https://img.shields.io/travis/NoahAndrews/SAVPP-java/master.svg?maxAge=2592000)](https://travis-ci.org/NoahAndrews/SAVPP-java)
+
+[![Dependency Status](https://www.versioneye.com/user/projects/577c5dba649a6f000d0469ed//badge.svg?style=flat)](https://www.versioneye.com/user/projects/577c5dba649a6f000d0469ed/)
 
 ## Links
 * General notes about how the protocol will work can be found in [NOTES.md.](NOTES.md)
