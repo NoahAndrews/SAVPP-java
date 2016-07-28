@@ -42,7 +42,7 @@ import static me.noahandrews.savpp.SAVPPServer.State.*;
  * SOFTWARE.
  */
 
-public class SAVPPServer {
+public class SAVPPServer implements MediaSynchronizationServer {
     private static final Logger logger = LogManager.getLogger();
 
     private State state = DORMANT;
@@ -78,6 +78,7 @@ public class SAVPPServer {
         logger.traceExit();
     }
 
+    @Override
     public synchronized void setEventHandler(EventHandler handler) {
         this.eventHandler = handler;
     }
@@ -86,6 +87,7 @@ public class SAVPPServer {
         return eventHandler;
     }
 
+    @Override
     public synchronized void startListening() throws IOException {
         logger.traceEntry();
         ExecutorService connectionListenerExecutor = Executors.newSingleThreadExecutor();
@@ -140,6 +142,7 @@ public class SAVPPServer {
         this.serverSocket = serverSocket;
     }
 
+    @Override
     public void tearDown() throws ExecutionException, InterruptedException, IOException {
         setState(DESTROYING);
 
@@ -319,22 +322,6 @@ public class SAVPPServer {
                 e.printStackTrace();
             }
         }
-    }
-
-    public static abstract class EventHandler {
-        public void serverStarted() {}
-
-        public boolean connectionRequested(String identifier) {
-            return true;
-        }
-
-        public void connectionEstablished() {}
-
-        public int timestampRequested() {
-            return 0;
-        }
-
-        public void incorrectMD5HashReceived(String receivedHash) {}
     }
 
     //TODO: ConnectionHandler should be its own class. Furthermore, it should consist of little more than a looping switch,

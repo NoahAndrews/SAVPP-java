@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.concurrent.ExecutionException;
 
 import static me.noahandrews.savpp.MD5Checker.isHashValid;
 import static me.noahandrews.savpp.SAVPPProto.ConnectionRequest;
@@ -33,7 +34,7 @@ import static me.noahandrews.savpp.SAVPPProto.SAVPPMessage;
  * SOFTWARE.
  */
 
-public class SAVPPClient {
+public class SAVPPClient implements MediaSynchronizationClient {
     private final String hostname;
     private OutputStream outputStream;
     private InputStream inputStream;
@@ -42,6 +43,7 @@ public class SAVPPClient {
         this.hostname = hostname;
     }
 
+    @Override
     public void connect(String md5Hash) throws IOException {
         if(!isHashValid(md5Hash)) {
             throw new IllegalArgumentException("Invalid MD5 hash");
@@ -61,5 +63,10 @@ public class SAVPPClient {
 
     protected Socket createSocket() throws IOException {
         return new Socket(hostname, SAVPPValues.PORT_NUMBER);
+    }
+
+    @Override
+    public void tearDown() throws ExecutionException, InterruptedException, IOException {
+        //TODO: Shut down socket cleanly
     }
 }
