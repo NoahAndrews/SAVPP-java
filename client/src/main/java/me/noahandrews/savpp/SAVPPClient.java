@@ -36,6 +36,9 @@ import static me.noahandrews.savpp.SAVPPProto.SAVPPMessage;
 
 public class SAVPPClient implements MediaSynchronizationClient {
     private final String hostname;
+
+    private Socket socket;
+
     private OutputStream outputStream;
     private InputStream inputStream;
 
@@ -54,7 +57,7 @@ public class SAVPPClient implements MediaSynchronizationClient {
                 .setConnectionRequest(ConnectionRequest.newBuilder().setMd5(md5Hash))
                 .build();
 
-        Socket socket = createSocket();
+        socket = createSocket();
         outputStream = socket.getOutputStream();
         inputStream = socket.getInputStream();
 
@@ -67,6 +70,6 @@ public class SAVPPClient implements MediaSynchronizationClient {
 
     @Override
     public void tearDown() throws ExecutionException, InterruptedException, IOException {
-        //TODO: Shut down socket cleanly
+        socket.close();
     }
 }
