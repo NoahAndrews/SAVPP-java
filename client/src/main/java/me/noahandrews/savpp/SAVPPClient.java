@@ -70,6 +70,8 @@ public class SAVPPClient implements MediaSynchronizationClient {
 
     @Override
     public void tearDown() throws ExecutionException, InterruptedException, IOException {
-        socket.close();
+        if(socket != null) {
+            socket.close();
+        }
     }
 }
