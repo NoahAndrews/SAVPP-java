@@ -144,6 +144,10 @@ public class SAVPPServer implements MediaSynchronizationServer {
 
     @Override
     public void tearDown() throws ExecutionException, InterruptedException, IOException {
+        if(state == DESTROYED || state == DESTROYING) {
+            return;
+        }
+
         setState(DESTROYING);
 
         for(Socket socket: connectedSockets) {
