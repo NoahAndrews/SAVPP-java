@@ -1,3 +1,6 @@
+# Abandoned.
+I went way too low-level for this project, without thinking at that low level. For ease of use with Spring, the server component of the successor to this project will likely just be JSON (or maybe protobuffers) on STOMP on Websockets. 
+
 # SAVPP-java
 Java library for the Synchronized Audio/Video Playback Protocol. I'm developing this protocol to be used in [this project.](https://github.com/NoahAndrews/SynchronizedMediaPlayer)
 
